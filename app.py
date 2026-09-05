@@ -29,7 +29,7 @@ st.sidebar.title("SCIMantra")
 st.sidebar.caption("Science • Research • Learning")
 section = st.sidebar.radio("Choose a tool", [
     "🏠 Dashboard", "🧪 Laboratory Calculators", "📊 Statistics", "🌱 Environmental Biotechnology",
-    "📈 Data Analyzer", "📊 Advanced Experimental Data Analysis", "🔬 Research Tools", "🌍 TEA & LCA"
+    "📈 Data Analyzer", "📊 Advanced Analysis", "🔬 Research Tools", "🌍 TEA & LCA"
 ])
 
 def download_df(df, filename="scimantra_results.csv"):
@@ -63,7 +63,7 @@ def payback(cf, discounted=False, rate=0.0):
             return float(i) if pv==0 else (i-1)+max(0,min(1,-prev/pv))
     return np.nan
 
-if section == "📊 Advanced Experimental Data Analysis":
+if section == "📊 Advanced Analysis":
     import runpy
     runpy.run_path("pages/7_Advanced_Experimental_Data_Analysis.py")
     st.stop()
@@ -176,7 +176,7 @@ elif section == "🌍 TEA & LCA":
         direct=equipment+engineering+other_capex+installation; total_capex=direct*(1+contingency); initial=total_capex+working_capital; effective_output=annual_output*capacity; maintenance=total_capex*.04; fixed_cash=fixed_opex+utilities+labor+maintenance; variable_opex=variable_cost*effective_output; annual_opex=fixed_cash+variable_opex; revenue=price*effective_output; ebitda=revenue-annual_opex; depreciation=total_capex/life; ebit=ebitda-depreciation; tax_cash=max(0,ebit*tax); fcf=ebitda-tax_cash; salvage=total_capex*salvage_pct; cf=[-initial]+[fcf for _ in range(life)]; cf[-1]+=salvage+working_capital
         npv=npv_of(cf,discount); roots=irr_roots(cf); roi=(sum(cf[1:])-initial)/initial*100; pv_future=sum(cf[i]/((1+discount)**i) for i in range(1,len(cf))); pi=pv_future/initial
         cash_be=variable_cost+fixed_cash/effective_output if effective_output else np.nan; accounting_be=variable_cost+(fixed_cash+depreciation)/effective_output if effective_output else np.nan; break_volume=fixed_cash/(price-variable_cost) if price>variable_cost else np.nan
-        try: min_price=price-brentq(lambda p: npv_of([-initial]+[(p*effective_output-annual_opex-max(0,(p*effective_output-annual_opex-depreciation)*tax)) for _ in range(life-1)]+[(p*effective_output-annual_opex-max(0,(p*effective_output-annual_opex-depreciation)*tax))+salvage+working_capital],discount),-1e6,1e6) if False else brentq(lambda p: npv_of([-initial]+[(p*effective_output-annual_opex-max(0,(p*effective_output-annual_opex-depreciation)*tax)) for _ in range(life-1)]+[(p*effective_output-annual_opex-max(0,(p*effective_output-annual_opex-depreciation)*tax))+salvage+working_capital],discount),0,1e6)
+        try: min_price=brentq(lambda p: npv_of([-initial]+[(p*effective_output-annual_opex-max(0,(p*effective_output-annual_opex-depreciation)*tax)) for _ in range(life-1)]+[(p*effective_output-annual_opex-max(0,(p*effective_output-annual_opex-depreciation)*tax))+salvage+working_capital],discount),0,1e6)
         except Exception: min_price=np.nan
         st.subheader("Key TEA results")
         vals=[("Total CAPEX",total_capex),("Initial investment",initial),("Annual revenue",revenue),("Annual OPEX",annual_opex),("Annual FCF",fcf),("NPV",npv),("IRR",(roots[0]*100 if roots else np.nan)),("Simple payback",payback(cf)),("Discounted payback",payback(cf,True,discount)),("ROI (project life)",roi),("Profitability index",pi)]
