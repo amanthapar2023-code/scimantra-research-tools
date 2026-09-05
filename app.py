@@ -19,6 +19,12 @@ from src.scimantra.laboratory import (
     bod_approx,
     cod_from_titration,
 )
+from src.scimantra.environmental import (
+    removal_efficiency,
+    loading_rate,
+    ebrt,
+    h2s_removal,
+)
 
 st.set_page_config(page_title="SciMantra Research Tools", page_icon="🔬", layout="wide", initial_sidebar_state="expanded")
 
@@ -145,13 +151,21 @@ elif section == "📊 Statistics":
 elif section == "🌱 Environmental Biotechnology":
     tool=st.selectbox("Environmental tool",["Removal efficiency","Loading rate","EBRT","H₂S removal"])
     if tool=="Removal efficiency":
-        cin=st.number_input("Influent concentration",value=100.); cout=st.number_input("Effluent concentration",value=20.); st.metric("Removal efficiency",f"{(cin-cout)/cin*100:.4g}%" if cin else "N/A")
+        cin=st.number_input("Influent concentration",value=100.); cout=st.number_input("Effluent concentration",value=20.)
+        try: st.metric("Removal efficiency",f"{removal_efficiency(cin,cout):.4g}%")
+        except ValueError as exc: st.error(str(exc))
     elif tool=="Loading rate":
-        concentration=st.number_input("Concentration",value=100.,min_value=0.); flow=st.number_input("Flow rate",value=1.,min_value=1e-9); st.metric("Loading",f"{concentration*flow:.6g} mass/time")
+        concentration=st.number_input("Concentration",value=100.,min_value=0.); flow=st.number_input("Flow rate",value=1.,min_value=0.)
+        try: st.metric("Loading",f"{loading_rate(concentration,flow):.6g} mass/time")
+        except ValueError as exc: st.error(str(exc))
     elif tool=="EBRT":
-        volume=st.number_input("Reactor volume",value=1.,min_value=0.); flow=st.number_input("Gas flow",value=1.,min_value=1e-9); st.metric("EBRT",f"{volume/flow:.6g} time")
+        volume=st.number_input("Reactor volume",value=1.,min_value=0.); flow=st.number_input("Gas flow",value=1.,min_value=0.)
+        try: st.metric("EBRT",f"{ebrt(volume,flow):.6g} time")
+        except ValueError as exc: st.error(str(exc))
     else:
-        cin=st.number_input("H₂S inlet",value=100.); cout=st.number_input("H₂S outlet",value=20.); st.metric("H₂S removal",f"{(cin-cout)/cin*100:.4g}%" if cin else "N/A")
+        cin=st.number_input("H₂S inlet",value=100.); cout=st.number_input("H₂S outlet",value=20.)
+        try: st.metric("H₂S removal",f"{h2s_removal(cin,cout):.4g}%")
+        except ValueError as exc: st.error(str(exc))
 
 elif section == "📈 Data Analyzer":
     st.subheader("Data Analyzer")
