@@ -113,12 +113,12 @@ if mode == "🧭 Research Knowledge Base":
 
     tab1, tab2, tab3, tab4 = st.tabs(["Reported results", "Methods", "Biochemistry", "Experimental roadmap"])
     with tab1:
-        st.dataframe(REPORTED_RESULTS, use_container_width=True, hide_index=True)
+        st.dataframe(REPORTED_RESULTS, width="stretch", hide_index=True)
         st.warning("These are previously reported/summary values. They are not substituted for raw replicate observations when inferential statistics are calculated.")
     with tab2:
-        st.dataframe(METHODS_PROFILE, use_container_width=True, hide_index=True)
+        st.dataframe(METHODS_PROFILE, width="stretch", hide_index=True)
     with tab3:
-        st.dataframe(BIOCHEMICAL_PROFILE, use_container_width=True, hide_index=True)
+        st.dataframe(BIOCHEMICAL_PROFILE, width="stretch", hide_index=True)
     with tab4:
         roadmap = pd.DataFrame([
             {"Phase": 1, "Component": "SOB/process optimization", "Status": "Completed + ongoing", "Key outputs": "Isolation, screening, medium optimization, operating conditions"},
@@ -127,7 +127,7 @@ if mode == "🧭 Research Knowledge Base":
             {"Phase": 4, "Component": "Hybrid system", "Status": "Upcoming", "Key outputs": "Series/parallel comparison, resilience"},
             {"Phase": 5, "Component": "TEA + scale-up", "Status": "Upcoming", "Key outputs": "Energy, cost, NPV, IRR, payback, scale-up"},
         ])
-        st.dataframe(roadmap, use_container_width=True, hide_index=True)
+        st.dataframe(roadmap, width="stretch", hide_index=True)
 
     st.subheader("Core equations")
     equations = pd.DataFrame([
@@ -137,7 +137,7 @@ if mode == "🧭 Research Knowledge Base":
         {"Metric": "Elimination capacity", "Equation": "EC = Q × (Cin − Cout) / Vb"},
         {"Metric": "Sulfur pathway", "Equation": "H₂S(g) → H₂S(aq)/HS⁻ → S⁰ → SO₄²⁻ (proposed until measured)"},
     ])
-    st.dataframe(equations, use_container_width=True, hide_index=True)
+    st.dataframe(equations, width="stretch", hide_index=True)
     st.caption("Use the actual bed-volume definition consistently. Geometric column volume (~0.589 L) is not automatically equivalent to packed-bed/empty-bed volume.")
     st.stop()
 
@@ -163,17 +163,17 @@ if mode == "🧫 Isolate & Biochemical Screening":
     df = read_uploaded(uploaded)
     if df is None:
         st.subheader("Known screening context")
-        st.dataframe(BIOCHEMICAL_PROFILE, use_container_width=True, hide_index=True)
+        st.dataframe(BIOCHEMICAL_PROFILE, width="stretch", hide_index=True)
         st.markdown("### Recommended isolate dataset")
         st.dataframe(pd.DataFrame([
             {"Isolate":"I-Tn1","OD600":0.0,"pH_final":7.0,"Sulfate_mg_L":np.nan,"CFU_mL":np.nan,"Protein_mg_mL":np.nan,"Gram":""},
             {"Isolate":"I-Tn2","OD600":1.0,"pH_final":2.5,"Sulfate_mg_L":np.nan,"CFU_mL":np.nan,"Protein_mg_mL":np.nan,"Gram":""},
             {"Isolate":"I-Tn3","OD600":np.nan,"pH_final":np.nan,"Sulfate_mg_L":np.nan,"CFU_mL":np.nan,"Protein_mg_mL":np.nan,"Gram":""},
-        ]), use_container_width=True, hide_index=True)
+        ]), width="stretch", hide_index=True)
         st.info("Upload your organized isolate workbook to calculate rankings, normalized scores, correlation heatmaps and publication figures.")
         st.stop()
     st.success(f"Loaded {len(df):,} rows × {len(df.columns):,} columns")
-    st.dataframe(df, use_container_width=True)
+    st.dataframe(df, width="stretch")
     numeric = df.select_dtypes(include=np.number).columns.tolist()
     id_candidates = [c for c in df.columns if df[c].nunique(dropna=True) <= max(20, len(df))]
     if numeric:
@@ -184,14 +184,14 @@ if mode == "🧫 Isolate & Biochemical Screening":
             for col in selected_metrics:
                 mat[col] = pd.to_numeric(mat[col], errors="coerce")
             st.subheader("Screening table")
-            st.dataframe(mat, use_container_width=True)
+            st.dataframe(mat, width="stretch")
             z = mat[selected_metrics].copy()
             for col in selected_metrics:
                 sd = z[col].std(skipna=True)
                 z[col] = (z[col] - z[col].mean()) / sd if sd and np.isfinite(sd) else 0
             z.index = mat[isolate_col].astype(str)
             st.subheader("Standardized screening heatmap")
-            st.plotly_chart(px.imshow(z.T, aspect="auto", color_continuous_midpoint=0, title="Standardized isolate-performance profile"), use_container_width=True)
+            st.plotly_chart(px.imshow(z.T, aspect="auto", color_continuous_midpoint=0, title="Standardized isolate-performance profile"), width="stretch")
             direction = st.multiselect("Metrics where higher is preferred", selected_metrics, default=selected_metrics)
             score = pd.Series(0.0, index=mat.index)
             for col in selected_metrics:
@@ -203,7 +203,7 @@ if mode == "🧫 Isolate & Biochemical Screening":
                 score += norm.fillna(0)
             out = mat[[isolate_col]].copy(); out["Composite_score"] = score; out = out.sort_values("Composite_score", ascending=False)
             st.subheader("Composite screening ranking")
-            st.dataframe(out, use_container_width=True, hide_index=True)
+            st.dataframe(out, width="stretch", hide_index=True)
             st.download_button("⬇️ Download isolate ranking", out.to_csv(index=False).encode("utf-8"), "isolate_screening_ranking.csv", "text/csv")
     st.stop()
 
@@ -223,9 +223,9 @@ if mode == "📈 Growth Curve":
             {"Time_h":78,"OD600":1.0,"Data_status":"Reported summary; not raw replicate data"},
             {"Time_h":88,"OD600":np.nan,"Data_status":"Workbook-specific value should be verified"},
             {"Time_h":180,"OD600":np.nan,"Data_status":"Actual/illustrative flag required"},
-        ]), use_container_width=True, hide_index=True)
+        ]), width="stretch", hide_index=True)
         st.stop()
-    st.dataframe(df, use_container_width=True)
+    st.dataframe(df, width="stretch")
     nums=df.select_dtypes(include=np.number).columns.tolist()
     if len(nums)>=2:
         t=st.selectbox("Time", nums, key="g_time")
@@ -238,11 +238,11 @@ if mode == "📈 Growth Curve":
                 if not keep.all(): st.warning(f"Excluded {int((~keep).sum())} rows marked illustrative/example/planned from quantitative fitting.")
                 df=df[keep].copy()
         d=df[[t,y]].apply(pd.to_numeric,errors="coerce").dropna().sort_values(t)
-        st.plotly_chart(px.line(d,x=t,y=y,markers=True,title="Growth curve"),use_container_width=True)
+        st.plotly_chart(px.line(d,x=t,y=y,markers=True,title="Growth curve"),width="stretch")
         if len(d)>=4:
             st.subheader("Phase-aware trend")
             d["dOD_dt"]=np.gradient(d[y].to_numpy(), d[t].to_numpy())
-            st.dataframe(d,use_container_width=True)
+            st.dataframe(d,width="stretch")
             peak=d.loc[d[y].idxmax()]
             c=st.columns(3); c[0].metric("Maximum observed OD",f"{peak[y]:.4g}"); c[1].metric("Time at maximum",f"{peak[t]:.4g}"); c[2].metric("Points",str(len(d)))
             st.warning("Do not call the descending OD region 'cell death' without viability evidence. Treat it as a decline in measured optical density.")
@@ -264,10 +264,10 @@ if mode == "🧪 H₂S Reactor Performance":
         c[2].metric("EBRT range", "20–80 s")
         c[3].metric("H₂S loading", "~5–25 g/m³·h")
         c[4].metric("Selected isolate", "I-Tn2")
-        st.dataframe(REPORTED_RESULTS, use_container_width=True, hide_index=True)
+        st.dataframe(REPORTED_RESULTS, width="stretch", hide_index=True)
         st.info("Upload the actual inlet/outlet/flow dataset to calculate EC and loading. Do not assume the geometric 0.589 L is the empty-bed volume.")
         st.stop()
-    st.dataframe(df,use_container_width=True)
+    st.dataframe(df,width="stretch")
     nums=df.select_dtypes(include=np.number).columns.tolist()
     def pick(label, keywords, exclude=None):
         cand=[c for c in nums if any(k in str(c).lower() for k in keywords) and c!=exclude]
@@ -297,15 +297,15 @@ if mode == "🧪 H₂S Reactor Performance":
             df["Elimination_capacity_g_m3_h"]=q_m3_h*(cin_g_m3-(x[cout_col]*ppm_to_g_m3))/vol
             df["EBRT_s"]=(vol/(q_m3_h/60))*1.0
         st.subheader("Calculated reactor metrics")
-        st.dataframe(df,use_container_width=True)
+        st.dataframe(df,width="stretch")
         c=st.columns(4); c[0].metric("Mean RE",f"{df['RE_%'].mean():.2f}%"); c[1].metric("Minimum RE",f"{df['RE_%'].min():.2f}%");
         if "Elimination_capacity_g_m3_h" in df: c[2].metric("Mean EC",f"{df['Elimination_capacity_g_m3_h'].mean():.3g} g/m³·h")
         if "EBRT_s" in df: c[3].metric("Mean calculated EBRT",f"{df['EBRT_s'].mean():.3g} s")
         st.caption(f"Calculation volume basis: {volume_basis}. State this explicitly in your thesis/PR because geometric volume, empty-bed volume and gas void volume are not interchangeable.")
         if "EBRT_s" in df:
-            st.plotly_chart(px.scatter(df,x="EBRT_s",y="RE_%",trendline="ols",title="H₂S removal vs calculated EBRT"),use_container_width=True)
+            st.plotly_chart(px.scatter(df,x="EBRT_s",y="RE_%",trendline="ols",title="H₂S removal vs calculated EBRT"),width="stretch")
         if "Inlet_loading_g_m3_h" in df:
-            st.plotly_chart(px.scatter(df,x="Inlet_loading_g_m3_h",y="RE_%",trendline="ols",title="H₂S removal vs inlet loading"),use_container_width=True)
+            st.plotly_chart(px.scatter(df,x="Inlet_loading_g_m3_h",y="RE_%",trendline="ols",title="H₂S removal vs inlet loading"),width="stretch")
         st.download_button("⬇️ Download reactor calculations",df.to_csv(index=False).encode("utf-8"),"h2s_reactor_metrics.csv","text/csv")
     st.stop()
 
@@ -323,17 +323,17 @@ if mode == "🔬 Sulfur Transformation":
             {"Pool":"Dissolved sulfide","Initial":50,"Final":8,"Unit":"mg/L","Interpretation":"Intermediate sulfur pool"},
             {"Pool":"Sulfate","Initial":65,"Final":285,"Unit":"mg/L","Interpretation":"Possible oxidation product"},
             {"Pool":"Elemental sulfur","Initial":np.nan,"Final":np.nan,"Unit":"mg/L or mg","Interpretation":"Measure separately where possible"},
-        ]),use_container_width=True,hide_index=True)
+        ]),width="stretch",hide_index=True)
         st.warning("The displayed values are previously reported summary observations. A true sulfur mass balance requires compatible units, sampling volumes/flows and all relevant sulfur pools.")
         st.stop()
-    st.dataframe(df,use_container_width=True)
+    st.dataframe(df,width="stretch")
     nums=df.select_dtypes(include=np.number).columns.tolist()
     if len(nums)>=2:
         a=st.selectbox("Initial/condition A",nums,key="s_a"); b=st.selectbox("Final/condition B",[c for c in nums if c!=a],key="s_b")
         work=df[[a,b]].apply(pd.to_numeric,errors="coerce")
         work["Absolute_change"]=work[b]-work[a]
         work["Percent_change"]=work["Absolute_change"]/work[a].abs()*100
-        st.dataframe(work,use_container_width=True)
+        st.dataframe(work,width="stretch")
         st.info("For publication, convert all sulfur pools to a common mass basis before claiming closure. Account for gas flow, sampling volume, liquid volume, packing-associated sulfur and analytical recovery.")
     st.stop()
 
@@ -368,7 +368,7 @@ if mode == "🧮 Kinetics & Regression":
             # second order
             z=stats.linregress(x,1/y); inv_pred=z.intercept+z.slope*x; pred=1/inv_pred; valid=np.isfinite(pred)&(inv_pred!=0); fits.append({"Model":"Second-order","k":z.slope,"R²":z.rvalue**2,"RMSE":np.sqrt(np.mean((y[valid]-pred[valid])**2))})
             result=pd.DataFrame(fits).sort_values("RMSE")
-            st.dataframe(result,use_container_width=True,hide_index=True)
+            st.dataframe(result,width="stretch",hide_index=True)
             best=result.iloc[0]["Model"]
             st.success(f"Best numerical fit by RMSE: {best}. Confirm physical plausibility and experimental assumptions before reporting it as the governing kinetic model.")
             # show linearized fits
@@ -382,7 +382,7 @@ if mode == "🧮 Kinetics & Regression":
                 else:
                     zz=stats.linregress(x,1/y); inv=zz.intercept+zz.slope*x; yp=np.where(inv>0,1/inv,np.nan)
                 fig.add_trace(go.Scatter(x=x,y=yp,mode="lines",name=row.Model))
-            st.plotly_chart(fig,use_container_width=True)
+            st.plotly_chart(fig,width="stretch")
             st.download_button("⬇️ Download kinetic comparison",result.to_csv(index=False).encode("utf-8"),"h2s_kinetic_model_comparison.csv","text/csv")
     st.stop()
 
@@ -400,12 +400,12 @@ if mode == "🧬 Controls & Biological Attribution":
             {"System":"Uninoculated clay-bead control","Cin_ppm":100,"Cout_ppm":72,"Removal_%":28,"Dissolved_sulfide_initial_mg_L":np.nan,"Dissolved_sulfide_final_mg_L":np.nan,"Sulfate_initial_mg_L":np.nan,"Sulfate_final_mg_L":np.nan,"pH_initial":np.nan,"pH_final":np.nan,"Status":"Reported PR summary"},
         ])
     else:
-        st.dataframe(df,use_container_width=True)
+        st.dataframe(df,width="stretch")
         nums=df.select_dtypes(include=np.number).columns.tolist()
         if len(nums)>=2:
             cin=st.selectbox("Inlet H₂S",nums,key="c_cin"); cout=st.selectbox("Outlet H₂S",[x for x in nums if x!=cin],key="c_cout")
             df["Calculated_RE_%"]=(df[cin]-df[cout])/df[cin]*100
-    st.dataframe(df,use_container_width=True,hide_index=True)
+    st.dataframe(df,width="stretch",hide_index=True)
     if {"Cin_ppm","Cout_ppm"}.issubset(df.columns):
         df["Calculated_RE_%"]=(df.Cin_ppm-df.Cout_ppm)/df.Cin_ppm*100
         st.bar_chart(df.set_index("System")["Calculated_RE_%"])
@@ -432,16 +432,16 @@ if mode == "🧱 Biofilm / Support Material":
         {"Support":"Glass beads","Observed issue":"Inadequate biofilm establishment under tested conditions","Decision":"Replaced for subsequent campaign"},
         {"Support":"Clay beads","Role":"Selected support for subsequent biofilter experiments","Evidence to collect":"Colonization images, biomass/attachment, SEM/microscopy where available"},
         {"Support":"Clay + fly ash","Role":"Candidate comparison","Evidence to collect":"Attachment, pressure drop, moisture retention, RE/EC and stability"},
-    ]),use_container_width=True,hide_index=True)
+    ]),width="stretch",hide_index=True)
     uploaded=st.file_uploader("Upload support-comparison dataset (optional)",type=["xlsx","csv"],key="support_upload")
     df=read_uploaded(uploaded)
     if df is not None:
-        st.dataframe(df,use_container_width=True)
+        st.dataframe(df,width="stretch")
         nums=df.select_dtypes(include=np.number).columns.tolist()
         groups=[c for c in df.columns if df[c].nunique(dropna=True)<=10]
         if nums and groups:
             g=st.selectbox("Support/material",groups,key="sup_g"); y=st.selectbox("Response",nums,key="sup_y")
-            st.plotly_chart(px.box(df,x=g,y=y,points="all",title=f"{y} by support material"),use_container_width=True)
+            st.plotly_chart(px.box(df,x=g,y=y,points="all",title=f"{y} by support material"),width="stretch")
     st.warning("Do not claim that clay improved biofilm solely from theoretical roughness/porosity. Link the material change to direct colonization, biomass and reactor-performance evidence.")
     st.stop()
 
@@ -455,7 +455,7 @@ if mode == "🖼️ Publication Figures":
     if df is None:
         st.info("Upload a dataset to create a figure. The figure templates below match your PR structure: removal vs EBRT, removal vs loading, daily stability, biological vs abiotic and pH/sulfur trends.")
         st.stop()
-    st.dataframe(df,use_container_width=True)
+    st.dataframe(df,width="stretch")
     nums=df.select_dtypes(include=np.number).columns.tolist(); cats=[c for c in df.columns if df[c].nunique(dropna=True)<=30]
     if nums:
         chart=st.selectbox("Figure type",["Scatter + trendline","Line","Box + individual points","Bar"],key="fig_type")
@@ -468,7 +468,7 @@ if mode == "🖼️ Publication Figures":
         elif chart=="Box + individual points": fig=px.box(df,x=x,y=y,points="all",**kwargs)
         else: fig=px.bar(df,x=x,y=y,**kwargs)
         fig.update_layout(template="plotly_white",font=dict(size=14),margin=dict(l=60,r=30,t=60,b=60))
-        st.plotly_chart(fig,use_container_width=True)
+        st.plotly_chart(fig,width="stretch")
         st.download_button("⬇️ Export figure specification",str(fig.to_dict()).encode("utf-8"),"figure_spec.txt","text/plain")
     st.stop()
 
@@ -491,14 +491,14 @@ if mode == "🧾 Data Quality & Reporting":
             {"Check":"Sulfur balance","Requirement":"Compatible units and sampling basis","Risk if missing":"Cannot establish transformation/closure"},
             {"Check":"Stability","Requirement":"Report time trend, not only maximum RE","Risk if missing":"Overstates performance"},
         ])
-        st.dataframe(rules,use_container_width=True,hide_index=True)
+        st.dataframe(rules,width="stretch",hide_index=True)
         st.stop()
     c=st.columns(5)
     c[0].metric("Rows",len(df)); c[1].metric("Columns",len(df.columns)); c[2].metric("Missing cells",int(df.isna().sum().sum())); c[3].metric("Duplicate rows",int(df.duplicated().sum())); c[4].metric("Numeric variables",len(df.select_dtypes(include=np.number).columns))
-    st.dataframe(df.head(100),use_container_width=True)
+    st.dataframe(df.head(100),width="stretch")
     missing=df.isna().sum().sort_values(ascending=False).reset_index(); missing.columns=["Variable","Missing"]
     st.subheader("Missingness")
-    st.dataframe(missing[missing.Missing>0],use_container_width=True,hide_index=True)
+    st.dataframe(missing[missing.Missing>0],width="stretch",hide_index=True)
     st.subheader("Reporting checklist")
     for item in [
         "Experimental unit is explicitly defined.",
@@ -531,7 +531,7 @@ if mode in ["📥 Upload & Analyze Dataset","📊 Advanced Statistics"]:
             {"Group":"Control","BiologicalReplicate":"B1","TechnicalReplicate":"T2","Time":0,"Value":10.5},
             {"Group":"Treatment","BiologicalReplicate":"B1","TechnicalReplicate":"T1","Time":0,"Value":8.0},
             {"Group":"Treatment","BiologicalReplicate":"B1","TechnicalReplicate":"T2","Time":0,"Value":8.4},
-        ]),use_container_width=True,hide_index=True)
+        ]),width="stretch",hide_index=True)
         st.info("For your H₂S work, useful columns include time/day, inlet H₂S, outlet H₂S, group/condition, biological replicate, technical replicate, pH, sulfate, dissolved sulfide, flow, EBRT and loading.")
         st.stop()
 
@@ -540,7 +540,7 @@ if mode in ["📥 Upload & Analyze Dataset","📊 Advanced Statistics"]:
     if not numeric_cols: st.error("No numeric variables detected."); st.stop()
     with st.expander("Data quality snapshot",expanded=True):
         c=st.columns(4); c[0].metric("Rows",len(df)); c[1].metric("Columns",len(df.columns)); c[2].metric("Missing",int(df.isna().sum().sum())); c[3].metric("Duplicates",int(df.duplicated().sum()))
-        st.dataframe(df.head(100),use_container_width=True)
+        st.dataframe(df.head(100),width="stretch")
 
     value_col=st.sidebar.selectbox("Measurement / response",numeric_cols,key="a_value")
     other=[c for c in numeric_cols if c!=value_col]
@@ -562,7 +562,7 @@ if mode in ["📥 Upload & Analyze Dataset","📊 Advanced Statistics"]:
 
     st.subheader("1. Descriptive statistics")
     summary=work.groupby("__group")["__value"].agg(n="count",mean="mean",SD="std",median="median",min="min",max="max").reset_index(); summary["SEM"]=work.groupby("__group")["__value"].sem().values; summary["CV_%"]=summary.SD.div(summary.mean.replace(0,np.nan)).abs()*100
-    st.dataframe(summary,use_container_width=True,hide_index=True)
+    st.dataframe(summary,width="stretch",hide_index=True)
 
     st.subheader("2. Replicate-aware analysis")
     if rep_col:
@@ -572,7 +572,7 @@ if mode in ["📥 Upload & Analyze Dataset","📊 Advanced Statistics"]:
             st.caption("Technical replicates were collapsed within independent replicate before inferential testing.")
         else:
             analysis_df=work.groupby(["__group",rep_col])["__value"].mean().reset_index(name="__value")
-        st.dataframe(analysis_df,use_container_width=True,hide_index=True)
+        st.dataframe(analysis_df,width="stretch",hide_index=True)
     else:
         analysis_df=work.copy(); st.warning("No biological/independent replicate ID selected. Inferential tests may suffer from pseudoreplication.")
 
@@ -589,7 +589,7 @@ if mode in ["📥 Upload & Analyze Dataset","📊 Advanced Statistics"]:
             tuk=stats.tukey_hsd(*groups); pairs=[]
             for i in range(len(groups)):
                 for j in range(i+1,len(groups)): pairs.append({"Group 1":names[i],"Group 2":names[j],"Mean difference":groups[i].mean()-groups[j].mean(),"p-value":tuk.pvalue[i,j]})
-            st.dataframe(pd.DataFrame(pairs),use_container_width=True,hide_index=True)
+            st.dataframe(pd.DataFrame(pairs),width="stretch",hide_index=True)
         except Exception as exc: st.warning(f"Tukey HSD unavailable: {exc}")
     else: st.info("Need at least two independent groups for between-group inference.")
 
@@ -600,17 +600,17 @@ if mode in ["📥 Upload & Analyze Dataset","📊 Advanced Statistics"]:
         if len(xy)>=3:
             pear=stats.pearsonr(xy.x,xy.y); spear=stats.spearmanr(xy.x,xy.y); fit=stats.linregress(xy.x,xy.y); ci=stats.t.interval(.95,len(xy)-2,loc=fit.slope,scale=fit.stderr)
             c=st.columns(5); c[0].metric("Pearson r",f"{pear.statistic:.4g}"); c[1].metric("Pearson p",f"{pear.pvalue:.4g}"); c[2].metric("Spearman ρ",f"{spear.statistic:.4g}"); c[3].metric("R²",f"{fit.rvalue**2:.4g}"); c[4].metric("Slope 95% CI",f"{ci[0]:.4g}–{ci[1]:.4g}")
-            st.plotly_chart(px.scatter(xy,x="x",y="y",trendline="ols",title=f"{value_col} vs {predictor}"),use_container_width=True)
+            st.plotly_chart(px.scatter(xy,x="x",y="y",trendline="ols",title=f"{value_col} vs {predictor}"),width="stretch")
 
     st.subheader("5. Time-series")
     if time_col:
         ts=work.dropna(subset=["__time"]); plot_df=ts.groupby(["__group","__time"])["__value"].agg(mean="mean",SD="std",n="count").reset_index(); plot_df["SEM"]=plot_df.SD/np.sqrt(plot_df.n)
-        st.plotly_chart(px.line(plot_df,x="__time",y="mean",color="__group",markers=True,error_y="SEM",title=f"{value_col} over time (mean ± SEM)"),use_container_width=True)
-        st.dataframe(plot_df,use_container_width=True,hide_index=True)
+        st.plotly_chart(px.line(plot_df,x="__time",y="mean",color="__group",markers=True,error_y="SEM",title=f"{value_col} over time (mean ± SEM)"),width="stretch")
+        st.dataframe(plot_df,width="stretch",hide_index=True)
         if rep_col: st.warning("If the same biological replicate is measured repeatedly over time, do not treat time points as independent. Use repeated-measures or mixed-effects methods as appropriate.")
 
     st.subheader("6. Publication-oriented boxplot")
-    st.plotly_chart(px.box(work,x="__group",y="__value",points="all",title=f"{value_col}: distribution and individual observations"),use_container_width=True)
+    st.plotly_chart(px.box(work,x="__group",y="__value",points="all",title=f"{value_col}: distribution and individual observations"),width="stretch")
 
     st.subheader("7. Export")
     st.download_button("⬇️ Descriptive summary",summary.to_csv(index=False).encode("utf-8"),"advanced_descriptive_summary.csv","text/csv")

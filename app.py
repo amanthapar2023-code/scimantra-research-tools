@@ -121,7 +121,7 @@ elif section == "📊 Statistics":
         except Exception: st.warning("Enter equal-length arrays.")
     else:
         x=st.text_area("X values","1,2,3,4,5"); y=st.text_area("Y values","2,4,5,8,10")
-        try: xx=np.array([float(v) for v in x.split(",") if v.strip()]); yy=np.array([float(v) for v in y.split(",") if v.strip()]); r=stats.linregress(xx,yy); c=st.columns(4); c[0].metric("Slope",f"{r.slope:.6g}"); c[1].metric("Intercept",f"{r.intercept:.6g}"); c[2].metric("R²",f"{r.rvalue**2:.6g}"); c[3].metric("p-value",f"{r.pvalue:.6g}"); order=np.argsort(xx); st.plotly_chart(go.Figure([go.Scatter(x=xx,y=yy,mode="markers"),go.Scatter(x=xx[order],y=r.intercept+r.slope*xx[order],mode="lines")]),use_container_width=True)
+        try: xx=np.array([float(v) for v in x.split(",") if v.strip()]); yy=np.array([float(v) for v in y.split(",") if v.strip()]); r=stats.linregress(xx,yy); c=st.columns(4); c[0].metric("Slope",f"{r.slope:.6g}"); c[1].metric("Intercept",f"{r.intercept:.6g}"); c[2].metric("R²",f"{r.rvalue**2:.6g}"); c[3].metric("p-value",f"{r.pvalue:.6g}"); order=np.argsort(xx); st.plotly_chart(go.Figure([go.Scatter(x=xx,y=yy,mode="markers"),go.Scatter(x=xx[order],y=r.intercept+r.slope*xx[order],mode="lines")]),width="stretch")
         except Exception: st.warning("Enter equal-length arrays.")
 
 elif section == "🌱 Environmental Biotechnology":
@@ -140,10 +140,10 @@ elif section == "📈 Data Analyzer":
     uploaded=st.file_uploader("Upload Excel/CSV",type=["xlsx","csv"])
     if uploaded:
         df=pd.read_csv(uploaded) if uploaded.name.lower().endswith(".csv") else pd.read_excel(uploaded)
-        st.dataframe(df,use_container_width=True)
+        st.dataframe(df,width="stretch")
         numeric=df.select_dtypes(include=np.number).columns.tolist()
         if numeric:
-            col=st.selectbox("Variable",numeric); st.dataframe(df[col].describe().to_frame().T,use_container_width=True); st.plotly_chart(px.histogram(df,x=col,title=f"Distribution: {col}"),use_container_width=True)
+            col=st.selectbox("Variable",numeric); st.dataframe(df[col].describe().to_frame().T,width="stretch"); st.plotly_chart(px.histogram(df,x=col,title=f"Distribution: {col}"),width="stretch")
     else: st.info("Upload an Excel or CSV file to begin.")
 
 elif section == "🔬 Research Tools":
@@ -187,19 +187,19 @@ elif section == "🌍 TEA & LCA":
         st.subheader("Break-even & investment indicators")
         b=st.columns(4); b[0].metric("Cash break-even value / unit",f"{currency}{cash_be:,.2f}"); b[1].metric("Accounting break-even value / unit",f"{currency}{accounting_be:,.2f}"); b[2].metric("Break-even annual volume",f"{break_volume:,.2f}"); b[3].metric("NPV-zero minimum selling value",f"{currency}{min_price:,.2f}" if np.isfinite(min_price) else "N/A")
         st.caption("Cash break-even excludes depreciation; accounting break-even includes depreciation. Minimum selling value is the unit value required for NPV ≈ 0 at the selected discount rate.")
-        cfdf=pd.DataFrame({"Year":range(len(cf)),"Cashflow":cf}); st.plotly_chart(px.bar(cfdf,x="Year",y="Cashflow",title="Cash-flow profile"),use_container_width=True)
+        cfdf=pd.DataFrame({"Year":range(len(cf)),"Cashflow":cf}); st.plotly_chart(px.bar(cfdf,x="Year",y="Cashflow",title="Cash-flow profile"),width="stretch")
         st.subheader("Scenario analysis")
         scen=[]
         for name,pm,vm in [("Conservative",.8,1.2),("Base",1.,1.),("Optimistic",1.2,.8)]:
             r=price*pm*effective_output-(fixed_cash+variable_cost*vm*effective_output); scen.append({"Scenario":name,"Annual FCF":r,"Selling value multiplier":pm,"Variable cost multiplier":vm})
-        st.dataframe(pd.DataFrame(scen),use_container_width=True)
+        st.dataframe(pd.DataFrame(scen),width="stretch")
         sell_mult=np.linspace(.8,1.2,9); cost_mult=np.linspace(.8,1.2,9); z=[]
         for cm in cost_mult:
             row=[]
             for sm in sell_mult:
                 f=price*sm*effective_output-(fixed_cash+variable_cost*cm*effective_output); cfs=[-initial]+[f for _ in range(life)]; cfs[-1]+=salvage+working_capital; row.append(npv_of(cfs,discount))
             z.append(row)
-        st.plotly_chart(px.imshow(z,x=sell_mult,y=cost_mult,labels={"x":"Selling value multiplier","y":"Variable-cost multiplier","color":"NPV"},title="NPV sensitivity: selling value vs variable cost"),use_container_width=True)
+        st.plotly_chart(px.imshow(z,x=sell_mult,y=cost_mult,labels={"x":"Selling value multiplier","y":"Variable-cost multiplier","color":"NPV"},title="NPV sensitivity: selling value vs variable cost"),width="stretch")
         st.markdown("**Research interpretation:** NPV < 0 means the default assumptions do not recover the initial investment at the selected discount rate. IRR is reported only when a valid positive-rate root exists.")
     else:
         st.subheader("1. Goal, scope & functional unit")
@@ -207,15 +207,15 @@ elif section == "🌍 TEA & LCA":
         st.caption(f"Normalization basis: {ref_qty:g} {ref_unit}. Report results per the functional unit {fu}; keep the inventory reference flow explicit and consistent.")
         st.subheader("2. Life-cycle inventory")
         default=pd.DataFrame([{"Flow":"Electricity","Quantity":100,"Unit":"kWh","Emission_factor":.7,"EF_unit":"kg CO2e/unit","Stage":"Operation","Category":"Energy","Source":"Example assumption","Geography":"Specify","Data_year":year,"Uncertainty_%":0},{"Flow":"Water","Quantity":2,"Unit":"m³","Emission_factor":.3,"EF_unit":"kg CO2e/unit","Stage":"Operation","Category":"Water","Source":"Example assumption","Geography":"Specify","Data_year":year,"Uncertainty_%":0},{"Flow":"Chemical","Quantity":5,"Unit":"kg","Emission_factor":2.,"EF_unit":"kg CO2e/unit","Stage":"Upstream","Category":"Material","Source":"Example assumption","Geography":"Specify","Data_year":year,"Uncertainty_%":0},{"Flow":"Transport","Quantity":50,"Unit":"tkm","Emission_factor":.1,"EF_unit":"kg CO2e/unit","Stage":"Transport","Category":"Transport","Source":"Example assumption","Geography":"Specify","Data_year":year,"Uncertainty_%":0}])
-        inv=st.data_editor(default,use_container_width=True,num_rows="dynamic")
+        inv=st.data_editor(default,width="stretch",num_rows="dynamic")
         q=pd.to_numeric(inv["Quantity"],errors="coerce").fillna(0); ef=pd.to_numeric(inv["Emission_factor"],errors="coerce").fillna(0); inv["CO2e_kg"]=q*ef; total=float(inv["CO2e_kg"].sum()); intensity=total/ref_qty if ref_qty else np.nan
         unc=pd.to_numeric(inv.get("Uncertainty_%",pd.Series([0]*len(inv))),errors="coerce").fillna(0)/100; sigma=float(np.sqrt(np.sum((inv["CO2e_kg"]*unc)**2))); lo=max(0,total-1.96*sigma); hi=total+1.96*sigma
         st.subheader("3. Results"); c=st.columns(3); c[0].metric("Total inventory GHG burden",f"{total:.3f} kg CO₂e"); c[1].metric("GHG intensity",f"{intensity:.6f} kg CO₂e / reference-output unit"); c[2].metric("Approx. uncertainty range",f"{lo:.3f}–{hi:.3f} kg CO₂e")
         st.caption(f"Functional unit: {fu}. Reference flow: {ref_qty:g} {ref_unit}. The uncertainty range is an approximate independent-error screen based only on user-entered row uncertainties; it is not a Monte Carlo confidence interval.")
-        stage=inv.groupby("Stage",dropna=False)["CO2e_kg"].sum().reset_index(); cat=inv.groupby("Category",dropna=False)["CO2e_kg"].sum().reset_index(); c1,c2=st.columns(2); c1.plotly_chart(px.bar(stage,x="Stage",y="CO2e_kg",title="Contribution by life-cycle stage"),use_container_width=True); c2.plotly_chart(px.bar(cat,x="Category",y="CO2e_kg",title="Contribution by inventory category"),use_container_width=True)
+        stage=inv.groupby("Stage",dropna=False)["CO2e_kg"].sum().reset_index(); cat=inv.groupby("Category",dropna=False)["CO2e_kg"].sum().reset_index(); c1,c2=st.columns(2); c1.plotly_chart(px.bar(stage,x="Stage",y="CO2e_kg",title="Contribution by life-cycle stage"),width="stretch"); c2.plotly_chart(px.bar(cat,x="Category",y="CO2e_kg",title="Contribution by inventory category"),width="stretch")
         st.subheader("4. Scenario comparison")
-        scen=st.data_editor(pd.DataFrame([{"Scenario":"Baseline","Total_CO2e_kg":total},{"Scenario":"Alternative","Total_CO2e_kg":total*.8}]),use_container_width=True,num_rows="dynamic"); scen["kg_CO2e_per_FU"]=scen["Total_CO2e_kg"]/ref_qty; base=float(scen.iloc[0]["Total_CO2e_kg"]) if len(scen) else np.nan; scen["Reduction_vs_baseline_%"]=(base-scen["Total_CO2e_kg"])/base*100 if base else np.nan; st.dataframe(scen,use_container_width=True); st.plotly_chart(px.bar(scen,x="Scenario",y="kg_CO2e_per_FU",title="Scenario GHG intensity"),use_container_width=True)
-        st.subheader("5. Sensitivity analysis"); valid=inv["Flow"].astype(str).tolist(); flow=st.selectbox("Flow to vary",valid); lo_pct,hi_pct=st.slider("Flow quantity range (%)",-80,200,(-50,50)); base_q=float(q[inv["Flow"].astype(str)==flow].sum()); multipliers=np.linspace(1+lo_pct/100,1+hi_pct/100,11); other=total-base_q*float(ef[inv["Flow"].astype(str)==flow].sum())/max(1,int((inv["Flow"].astype(str)==flow).sum())) if base_q else total; row=inv[inv["Flow"].astype(str)==flow].iloc[0]; contribution=float(row["CO2e_kg"]); vals=(total-contribution)+contribution*multipliers; sens=pd.DataFrame({"Quantity multiplier":multipliers,"kg CO2e / FU":vals/ref_qty}); st.plotly_chart(px.line(sens,x="Quantity multiplier",y="kg CO2e / FU",markers=True,title=f"LCA sensitivity: {flow}"),use_container_width=True)
+        scen=st.data_editor(pd.DataFrame([{"Scenario":"Baseline","Total_CO2e_kg":total},{"Scenario":"Alternative","Total_CO2e_kg":total*.8}]),width="stretch",num_rows="dynamic"); scen["kg_CO2e_per_FU"]=scen["Total_CO2e_kg"]/ref_qty; base=float(scen.iloc[0]["Total_CO2e_kg"]) if len(scen) else np.nan; scen["Reduction_vs_baseline_%"]=(base-scen["Total_CO2e_kg"])/base*100 if base else np.nan; st.dataframe(scen,width="stretch"); st.plotly_chart(px.bar(scen,x="Scenario",y="kg_CO2e_per_FU",title="Scenario GHG intensity"),width="stretch")
+        st.subheader("5. Sensitivity analysis"); valid=inv["Flow"].astype(str).tolist(); flow=st.selectbox("Flow to vary",valid); lo_pct,hi_pct=st.slider("Flow quantity range (%)",-80,200,(-50,50)); base_q=float(q[inv["Flow"].astype(str)==flow].sum()); multipliers=np.linspace(1+lo_pct/100,1+hi_pct/100,11); other=total-base_q*float(ef[inv["Flow"].astype(str)==flow].sum())/max(1,int((inv["Flow"].astype(str)==flow).sum())) if base_q else total; row=inv[inv["Flow"].astype(str)==flow].iloc[0]; contribution=float(row["CO2e_kg"]); vals=(total-contribution)+contribution*multipliers; sens=pd.DataFrame({"Quantity multiplier":multipliers,"kg CO2e / FU":vals/ref_qty}); st.plotly_chart(px.line(sens,x="Quantity multiplier",y="kg CO2e / FU",markers=True,title=f"LCA sensitivity: {flow}"),width="stretch")
         share=contribution/total*100 if total else 0; st.info(f"Sensitivity driver: **{flow}** contributes approximately **{share:.1f}%** of baseline GHG burden. Focus data-quality improvement and scenario testing on high-contribution flows.")
         with st.expander("6. Data quality & methodology record"):
             st.write({"Goal":goal,"Assessment":assessment,"Functional unit":fu,"Reference flow":f"{ref_qty:g} {ref_unit}","System boundary":boundary,"Geography":geography,"Technology":technology,"Reference year":year})

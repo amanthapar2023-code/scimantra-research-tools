@@ -132,8 +132,8 @@ def tea_tool():
         "Cumulative discounted cash flow": np.cumsum(discounted_cf),
     })
     st.subheader("Cash-flow profile")
-    st.plotly_chart(px.line(cf_df, x="Year", y=["Cumulative cash flow", "Cumulative discounted cash flow"], markers=True, title="Cumulative project cash flow"), use_container_width=True)
-    st.dataframe(cf_df, use_container_width=True)
+    st.plotly_chart(px.line(cf_df, x="Year", y=["Cumulative cash flow", "Cumulative discounted cash flow"], markers=True, title="Cumulative project cash flow"), width="stretch")
+    st.dataframe(cf_df, width="stretch")
     st.download_button("⬇️ Download TEA cash-flow CSV", cf_df.to_csv(index=False).encode(), "tea_cashflow.csv", "text/csv")
 
     st.subheader("Sensitivity analysis")
@@ -158,7 +158,7 @@ def tea_tool():
             rows.append({"Selling value multiplier": pm, "Variable-cost multiplier": vm, "NPV": sum(v / ((1 + discount / 100) ** i) for i, v in enumerate(cf))})
     sens = pd.DataFrame(rows)
     pivot = sens.pivot(index="Variable-cost multiplier", columns="Selling value multiplier", values="NPV")
-    st.plotly_chart(px.imshow(pivot, aspect="auto", title="NPV sensitivity: selling value vs variable cost", labels={"x":"Selling value multiplier", "y":"Variable-cost multiplier", "color":"NPV"}), use_container_width=True)
+    st.plotly_chart(px.imshow(pivot, aspect="auto", title="NPV sensitivity: selling value vs variable cost", labels={"x":"Selling value multiplier", "y":"Variable-cost multiplier", "color":"NPV"}), width="stretch")
     st.caption("Sensitivity holds all other assumptions constant. Use project-specific ranges and document every assumption.")
 
 
@@ -184,7 +184,7 @@ def lca_tool():
         {"Flow":"Chemical", "Quantity":5.0, "Unit":"kg", "Emission_factor":2.0, "EF_unit":"kg CO2e/unit", "Stage":"Upstream", "Category":"Material"},
         {"Flow":"Transport", "Quantity":50.0, "Unit":"tkm", "Emission_factor":0.1, "EF_unit":"kg CO2e/unit", "Stage":"Transport", "Category":"Transport"},
     ])
-    edited = st.data_editor(default, num_rows="dynamic", use_container_width=True, key="lca_inventory")
+    edited = st.data_editor(default, num_rows="dynamic", width="stretch", key="lca_inventory")
     inv = edited.copy()
     for col in ["Quantity", "Emission_factor"]:
         inv[col] = pd.to_numeric(inv[col], errors="coerce").fillna(0.0)
@@ -202,25 +202,25 @@ def lca_tool():
     category = inv.groupby("Category", as_index=False)["CO2e_kg"].sum().sort_values("CO2e_kg", ascending=False)
     c1, c2 = st.columns(2)
     with c1:
-        st.plotly_chart(px.bar(stage, x="Stage", y="CO2e_kg", title="Contribution by life-cycle stage"), use_container_width=True)
+        st.plotly_chart(px.bar(stage, x="Stage", y="CO2e_kg", title="Contribution by life-cycle stage"), width="stretch")
     with c2:
-        st.plotly_chart(px.bar(category, x="Category", y="CO2e_kg", title="Contribution by inventory category"), use_container_width=True)
-    st.dataframe(inv, use_container_width=True)
+        st.plotly_chart(px.bar(category, x="Category", y="CO2e_kg", title="Contribution by inventory category"), width="stretch")
+    st.dataframe(inv, width="stretch")
     st.download_button("⬇️ Download LCA inventory/results CSV", inv.to_csv(index=False).encode(), "lca_inventory_results.csv", "text/csv")
 
     st.subheader("4. Scenario comparison")
     scenarios = st.data_editor(pd.DataFrame([
         {"Scenario":"Baseline", "Total_CO2e_kg":total},
         {"Scenario":"Alternative", "Total_CO2e_kg":total * 0.8},
-    ]), num_rows="dynamic", use_container_width=True, key="lca_scenarios")
+    ]), num_rows="dynamic", width="stretch", key="lca_scenarios")
     scenarios = scenarios.copy()
     scenarios["Total_CO2e_kg"] = pd.to_numeric(scenarios["Total_CO2e_kg"], errors="coerce")
     scenarios["kg_CO2e_per_FU"] = scenarios["Total_CO2e_kg"] / reference_output
     baseline = scenarios.loc[scenarios["Scenario"] == "Baseline", "Total_CO2e_kg"]
     baseline_value = float(baseline.iloc[0]) if len(baseline) else float(total)
     scenarios["Reduction_vs_baseline_%"] = (baseline_value - scenarios["Total_CO2e_kg"]) / baseline_value * 100 if baseline_value else np.nan
-    st.dataframe(scenarios, use_container_width=True)
-    st.plotly_chart(px.bar(scenarios, x="Scenario", y="kg_CO2e_per_FU", title="Scenario GHG intensity"), use_container_width=True)
+    st.dataframe(scenarios, width="stretch")
+    st.plotly_chart(px.bar(scenarios, x="Scenario", y="kg_CO2e_per_FU", title="Scenario GHG intensity"), width="stretch")
     st.download_button("⬇️ Download scenario comparison CSV", scenarios.to_csv(index=False).encode(), "lca_scenario_comparison.csv", "text/csv")
 
     st.subheader("5. Sensitivity analysis")
@@ -234,7 +234,7 @@ def lca_tool():
         base_contribution = inv.loc[row_idx, "CO2e_kg"]
         values = base_total - base_contribution + base_contribution * multipliers
         sens = pd.DataFrame({"Quantity multiplier": multipliers, "Total kg CO2e": values, "kg CO2e/FU": values / reference_output})
-        st.plotly_chart(px.line(sens, x="Quantity multiplier", y="kg CO2e/FU", markers=True, title=f"LCA sensitivity: {flow}"), use_container_width=True)
+        st.plotly_chart(px.line(sens, x="Quantity multiplier", y="kg CO2e/FU", markers=True, title=f"LCA sensitivity: {flow}"), width="stretch")
         st.download_button("⬇️ Download LCA sensitivity CSV", sens.to_csv(index=False).encode(), "lca_sensitivity.csv", "text/csv")
 
     with st.expander("Important LCA interpretation notes"):
