@@ -210,12 +210,16 @@ elif section == "🌍 TEA & LCA":
         contribution=price-variable; cash_be=variable+fixed_cash/effective if effective else np.nan; accounting_be=variable+(fixed_cash+depreciation)/effective if effective else np.nan; be_volume=fixed_cash/contribution if contribution>0 else np.nan; roi=((sum(cashflows[1:])-initial_investment)/initial_investment*100) if initial_investment else np.nan; pi=sum(disc_cf[1:])/initial_investment if initial_investment else np.nan
         def npv_price(p):
             ebitda_x=effective*p-fixed_cash-effective*variable; ebit_x=ebitda_x-depreciation; tax_x=max(0.,ebit_x*tax/100); fcf_x=ebit_x-tax_x+depreciation; cf=[-initial_investment]+[fcf_x]*int(years); cf[-1]+=salvage+working_capital; return npv_of(cf,discount/100)
-        min_price=np.nan; hi=max(1.,price*10+1.); 
+        min_price=np.nan; hi=max(1.,price*10+1.)
         if npv_price(0)<=0<=npv_price(hi):
             try: min_price=brentq(npv_price,0,hi)
             except Exception: pass
+        if npv > 0: tea_status="🟢 Economically attractive"
+        elif npv >= -0.1*initial_investment: tea_status="🟡 Borderline / needs optimization"
+        else: tea_status="🔴 Not economically viable under current assumptions"
         st.subheader("Key TEA results"); c=st.columns(6); c[0].metric("Total CAPEX",f"{currency}{total_capex:,.0f}"); c[1].metric("Initial investment",f"{currency}{initial_investment:,.0f}"); c[2].metric("Annual revenue",f"{currency}{revenue:,.0f}"); c[3].metric("Annual OPEX",f"{currency}{annual_opex:,.0f}"); c[4].metric("Annual FCF",f"{currency}{fcf:,.0f}"); c[5].metric("NPV",f"{currency}{npv:,.0f}")
-        c=st.columns(5); c[0].metric("IRR",f"{roots[0]*100:.2f}%" if len(roots)==1 else (f"Multiple ({len(roots)})" if len(roots)>1 else "N/A")); c[1].metric("Simple payback",f"{simple_pb:.2f} years" if np.isfinite(simple_pb) else "Not reached"); c[2].metric("Discounted payback",f"{discounted_pb:.2f} years" if np.isfinite(discounted_pb) else "Not reached"); c[3].metric("ROI (project life)",f"{roi:.2f}%" if np.isfinite(roi) else "N/A"); c[4].metric("Profitability index",f"{pi:.3f}" if np.isfinite(pi) else "N/A")
+        c=st.columns(5); c[0].metric("IRR",f"{roots[0]*100:.2f}%" if len(roots)==1 else (f"Multiple ({len(roots)})" if len(roots)>1 else "N/A")); c[1].metric("Simple payback",f"{simple_pb:.2f} years" if np.isfinite(simple_pb) else "Not reached"); c[2].metric("Discounted payback",f"{discounted_pb:.2f} years" if np.isfinite(discounted_pb) else "Not reached"); c[3].metric("Lifetime ROI",f"{roi:.2f}%" if np.isfinite(roi) else "N/A"); c[4].metric("Profitability index",f"{pi:.3f}" if np.isfinite(pi) else "N/A")
+        st.subheader("Decision screen"); st.warning(tea_status) if tea_status.startswith("🔴") else (st.info(tea_status) if tea_status.startswith("🟡") else st.success(tea_status)); st.caption("Decision screen is a screening aid, not an investment recommendation. Formal TEA should include project-specific financing, escalation, depreciation, tax, working-capital, replacement and decommissioning assumptions.")
         st.subheader("Break-even & investment indicators"); c=st.columns(4); c[0].metric("Cash break-even value / unit",f"{currency}{cash_be:,.2f}" if np.isfinite(cash_be) else "N/A"); c[1].metric("Accounting break-even value / unit",f"{currency}{accounting_be:,.2f}" if np.isfinite(accounting_be) else "N/A"); c[2].metric("Break-even annual volume",f"{be_volume:,.2f}" if np.isfinite(be_volume) else "N/A"); c[3].metric("NPV-zero minimum selling value",f"{currency}{min_price:,.2f}" if np.isfinite(min_price) else "N/A")
         st.caption("Cash break-even excludes depreciation; accounting break-even includes depreciation. Minimum selling value is the unit value required for NPV ≈ 0 at the selected discount rate.")
         cf_df=pd.DataFrame({"Year":year_arr,"Revenue":[0.]+[revenue]*int(years),"OPEX":[0.]+[annual_opex]*int(years),"EBITDA":[0.]+[ebitda]*int(years),"Tax":[0.]+[tax_exp]*int(years),"Free cash flow":cashflows,"Discounted cash flow":disc_cf,"Cumulative cash flow":np.cumsum(cashflows),"Cumulative discounted cash flow":np.cumsum(disc_cf)})
@@ -230,39 +234,71 @@ elif section == "🌍 TEA & LCA":
                 p=price*pm; vc=variable*vm; rev=effective*p; op=fixed_cash+effective*vc; e=rev-op-depreciation; tx=max(0.,e*tax/100); f=e-tx+depreciation; cf=[-initial_investment]+[f]*int(years); cf[-1]+=salvage+working_capital; rows.append({"Selling value multiplier":pm,"Variable-cost multiplier":vm,"NPV":npv_of(cf,discount/100)})
         sens=pd.DataFrame(rows); pivot=sens.pivot(index="Variable-cost multiplier",columns="Selling value multiplier",values="NPV"); st.plotly_chart(px.imshow(pivot,aspect="auto",title="NPV sensitivity: selling value vs variable cost",labels={"x":"Selling value multiplier","y":"Variable-cost multiplier","color":"NPV"}),use_container_width=True)
         with st.expander("TEA equations & interpretation"):
-            st.markdown("**NPV > 0** indicates positive value at the selected discount rate under the stated assumptions. **IRR** is reported only when a unique root is found; multiple roots are flagged. Break-even outputs distinguish cash and accounting definitions. Use project-specific costs, taxes, financing, depreciation and escalation assumptions for formal feasibility work.")
+            st.markdown("**NPV > 0** indicates positive value at the selected discount rate under the stated assumptions. **IRR** is reported only when a unique root is found; multiple roots are flagged. **Lifetime ROI** is cumulative project cash returned relative to initial investment; it is not a standardized accounting ROI definition. Break-even outputs distinguish cash and accounting definitions.")
     else:
-        st.subheader("🌍 Life Cycle Assessment (LCA)"); st.write("Build a transparent screening LCA from material, energy, transport and emission flows, normalized to a defined functional unit.")
+        st.subheader("🌍 Life Cycle Assessment (LCA)")
+        st.write("Build a transparent screening LCA from material, energy, transport and emission flows, normalized to one clearly defined functional unit.")
         with st.expander("1. Goal, scope & functional unit",expanded=True):
             c1,c2=st.columns(2)
-            with c1: goal=st.text_area("Goal","Compare the environmental burden of two process scenarios."); functional_unit=st.text_input("Functional unit","1 kg product / 1 m³ treated wastewater"); boundary=st.selectbox("System boundary",["Gate-to-gate","Cradle-to-gate","Cradle-to-grave","Custom"])
-            with c2: assessment=st.text_input("Assessment name","SciMantra screening LCA"); reference=st.number_input("Reference output for inventory",min_value=1e-6,value=1000.); year_ref=st.number_input("Data/reference year",1900,2100,2026); st.caption("All inventory quantities must be on a consistent reference basis. Normalization divides total burden by the reference output.")
+            with c1:
+                goal=st.text_area("Goal","Compare the environmental burden of two process scenarios.")
+                functional_unit=st.text_input("Functional unit (one service/product basis)","1 kg product")
+                reference_unit=st.text_input("Reference flow / output unit","kg product")
+                boundary=st.selectbox("System boundary",["Gate-to-gate","Cradle-to-gate","Cradle-to-grave","Custom"])
+            with c2:
+                assessment=st.text_input("Assessment name","SciMantra screening LCA")
+                reference=st.number_input("Reference flow quantity",min_value=1e-6,value=1000.)
+                year_ref=st.number_input("Data/reference year",1900,2100,2026)
+                geography=st.text_input("Geography / context","Specify country, region or site")
+                technology=st.text_input("Technology / process description","Specify process configuration")
+            st.caption(f"Normalization basis: {reference:g} {reference_unit}. Report results per the functional unit **{functional_unit}**; keep the inventory reference flow explicit and consistent.")
         st.subheader("2. Life-cycle inventory")
         default=pd.DataFrame([
-            {"Flow":"Electricity","Quantity":100.,"Unit":"kWh","Emission_factor":.7,"EF_unit":"kg CO2e/unit","Stage":"Operation","Category":"Energy","Source":"Example assumption"},
-            {"Flow":"Water","Quantity":2.,"Unit":"m³","Emission_factor":.3,"EF_unit":"kg CO2e/unit","Stage":"Operation","Category":"Water","Source":"Example assumption"},
-            {"Flow":"Chemical","Quantity":5.,"Unit":"kg","Emission_factor":2.,"EF_unit":"kg CO2e/unit","Stage":"Upstream","Category":"Material","Source":"Example assumption"},
-            {"Flow":"Transport","Quantity":50.,"Unit":"tkm","Emission_factor":.1,"EF_unit":"kg CO2e/unit","Stage":"Transport","Category":"Transport","Source":"Example assumption"},
+            {"Flow":"Electricity","Quantity":100.,"Unit":"kWh","Emission_factor":.7,"EF_unit":"kg CO2e/unit","Stage":"Operation","Category":"Energy","Source":"Example assumption","Geography":"Specify","Data_year":2026,"Uncertainty_%":0.},
+            {"Flow":"Water","Quantity":2.,"Unit":"m³","Emission_factor":.3,"EF_unit":"kg CO2e/unit","Stage":"Operation","Category":"Water","Source":"Example assumption","Geography":"Specify","Data_year":2026,"Uncertainty_%":0.},
+            {"Flow":"Chemical","Quantity":5.,"Unit":"kg","Emission_factor":2.,"EF_unit":"kg CO2e/unit","Stage":"Upstream","Category":"Material","Source":"Example assumption","Geography":"Specify","Data_year":2026,"Uncertainty_%":0.},
+            {"Flow":"Transport","Quantity":50.,"Unit":"tkm","Emission_factor":.1,"EF_unit":"kg CO2e/unit","Stage":"Transport","Category":"Transport","Source":"Example assumption","Geography":"Specify","Data_year":2026,"Uncertainty_%":0.},
         ])
-        edited=st.data_editor(default,num_rows="dynamic",use_container_width=True,key="lca_inventory"); inv=edited.copy()
-        for col in ["Quantity","Emission_factor"]: inv[col]=pd.to_numeric(inv[col],errors="coerce")
+        edited=st.data_editor(default,num_rows="dynamic",use_container_width=True,key="lca_inventory_v2"); inv=edited.copy()
+        for col in ["Quantity","Emission_factor","Data_year","Uncertainty_%"]: inv[col]=pd.to_numeric(inv[col],errors="coerce")
         invalid=int(inv[["Quantity","Emission_factor"]].isna().any(axis=1).sum()); inv[["Quantity","Emission_factor"]]=inv[["Quantity","Emission_factor"]].fillna(0.)
-        if invalid: st.warning(f"{invalid} inventory row(s) contained non-numeric values; those cells were treated as zero.")
+        inv["Uncertainty_%"]=inv["Uncertainty_%"].fillna(0.).clip(lower=0.)
+        inv["Data_year"]=inv["Data_year"].fillna(year_ref)
+        if invalid: st.warning(f"{invalid} inventory row(s) contained non-numeric quantity/emission-factor values; those cells were treated as zero.")
         inv["CO2e_kg"]=inv["Quantity"]*inv["Emission_factor"]; inv["CO2e_per_reference_output"]=inv["CO2e_kg"]/reference
-        total=float(inv["CO2e_kg"].sum()); per_ref=total/reference
-        st.subheader("3. Results"); c1,c2=st.columns(2); c1.metric("Total inventory GHG burden",f"{total:,.3f} kg CO₂e"); c2.metric("GHG intensity",f"{per_ref:,.6f} kg CO₂e / reference-output unit"); st.caption(f"Functional unit: **{functional_unit}**. Normalization basis: {reference:g} reference-output units.")
+        inv["Uncertainty_abs_kgCO2e"]=inv["CO2e_kg"].abs()*inv["Uncertainty_%"]/100
+        total=float(inv["CO2e_kg"].sum()); per_ref=total/reference; combined_unc=float(np.sqrt(np.square(inv["Uncertainty_abs_kgCO2e"]).sum()))
+        lower=max(0.,total-combined_unc); upper=total+combined_unc
+        st.subheader("3. Results"); c1,c2,c3=st.columns(3); c1.metric("Total inventory GHG burden",f"{total:,.3f} kg CO₂e"); c2.metric("GHG intensity",f"{per_ref:,.6f} kg CO₂e / {functional_unit}"); c3.metric("Approx. uncertainty range",f"{lower:,.3f}–{upper:,.3f} kg CO₂e")
+        st.caption(f"Functional unit: **{functional_unit}**. Reference flow: {reference:g} {reference_unit}. The uncertainty range is an approximate independent-error screen based only on user-entered row uncertainties; it is not a Monte Carlo confidence interval.")
         stage=inv.groupby("Stage",as_index=False)["CO2e_kg"].sum().sort_values("CO2e_kg",ascending=False); category=inv.groupby("Category",as_index=False)["CO2e_kg"].sum().sort_values("CO2e_kg",ascending=False); c1,c2=st.columns(2)
         with c1: st.plotly_chart(px.bar(stage,x="Stage",y="CO2e_kg",title="Contribution by life-cycle stage"),use_container_width=True)
         with c2: st.plotly_chart(px.bar(category,x="Category",y="CO2e_kg",title="Contribution by inventory category"),use_container_width=True)
         st.dataframe(inv,use_container_width=True); download_df(inv,"lca_inventory_results.csv")
-        st.subheader("4. Scenario comparison"); scenarios=st.data_editor(pd.DataFrame([{"Scenario":"Baseline","Total_CO2e_kg":total},{"Scenario":"Alternative","Total_CO2e_kg":total*.8}]),num_rows="dynamic",use_container_width=True,key="lca_scenarios"); scenarios=scenarios.copy(); scenarios["Total_CO2e_kg"]=pd.to_numeric(scenarios["Total_CO2e_kg"],errors="coerce"); scenarios["kg_CO2e_per_FU"]=scenarios["Total_CO2e_kg"]/reference; baseline=scenarios.loc[scenarios["Scenario"]=="Baseline","Total_CO2e_kg"].dropna(); base=float(baseline.iloc[0]) if len(baseline) else total; scenarios["Reduction_vs_baseline_%"]=(base-scenarios["Total_CO2e_kg"])/base*100 if base else np.nan; st.dataframe(scenarios,use_container_width=True); st.plotly_chart(px.bar(scenarios,x="Scenario",y="kg_CO2e_per_FU",title="Scenario GHG intensity"),use_container_width=True); download_df(scenarios,"lca_scenario_comparison.csv")
+        with st.expander("Data-quality & methodology record"):
+            st.write(f"**Assessment:** {assessment}")
+            st.write(f"**Goal:** {goal}")
+            st.write(f"**Boundary:** {boundary}")
+            st.write(f"**Functional unit:** {functional_unit}")
+            st.write(f"**Reference flow:** {reference:g} {reference_unit}")
+            st.write(f"**Geography/context:** {geography}")
+            st.write(f"**Technology/process:** {technology}")
+            st.write(f"**Reference year:** {year_ref}")
+            st.caption("For formal LCA reporting, document source/database, geography, technology, year, allocation, cut-off criteria and uncertainty for each factor.")
+        st.subheader("4. Scenario comparison")
+        scenarios=st.data_editor(pd.DataFrame([{"Scenario":"Baseline","Total_CO2e_kg":total},{"Scenario":"Alternative","Total_CO2e_kg":total*.8}]),num_rows="dynamic",use_container_width=True,key="lca_scenarios_v2"); scenarios=scenarios.copy(); scenarios["Total_CO2e_kg"]=pd.to_numeric(scenarios["Total_CO2e_kg"],errors="coerce"); scenarios["kg_CO2e_per_FU"]=scenarios["Total_CO2e_kg"]/reference; baseline=scenarios.loc[scenarios["Scenario"]=="Baseline","Total_CO2e_kg"].dropna(); base=float(baseline.iloc[0]) if len(baseline) else total; scenarios["Reduction_vs_baseline_%"]=(base-scenarios["Total_CO2e_kg"])/base*100 if base else np.nan; st.dataframe(scenarios,use_container_width=True); st.plotly_chart(px.bar(scenarios,x="Scenario",y="kg_CO2e_per_FU",title="Scenario GHG intensity"),use_container_width=True); download_df(scenarios,"lca_scenario_comparison.csv")
+        if len(scenarios.dropna(subset=["Total_CO2e_kg"]))>=2:
+            alt_rows=scenarios[scenarios["Scenario"]!="Baseline"].dropna(subset=["Total_CO2e_kg"])
+            if len(alt_rows):
+                best=alt_rows.iloc[0]; reduction=float(best["Reduction_vs_baseline_%"]); st.info(f"Scenario interpretation: **{best['Scenario']}** changes the GHG burden by **{reduction:+.1f}%** versus the baseline. Positive values mean a reduction; negative values mean an increase.")
         st.subheader("5. Sensitivity analysis"); st.caption("Screen the effect of changing one inventory flow while holding all other flows constant.")
         if len(inv):
-            flow=st.selectbox("Flow to vary",inv["Flow"].tolist()); base_qty=float(inv.loc[inv["Flow"]==flow,"Quantity"].iloc[0]); low,high=st.slider("Flow quantity range (%)",-80,200,(-50,50)); rows=[]
+            flow=st.selectbox("Flow to vary",inv["Flow"].tolist(),key="lca_flow_v2"); base_qty=float(inv.loc[inv["Flow"]==flow,"Quantity"].iloc[0]); low,high=st.slider("Flow quantity range (%)",-80,200,(-50,50),key="lca_range_v2"); rows=[]
             for factor in np.linspace(1+low/100,1+high/100,11):
                 changed=inv.copy(); idx=changed.index[changed["Flow"]==flow][0]; changed.loc[idx,"Quantity"]=base_qty*factor; changed["CO2e_kg"]=changed["Quantity"]*changed["Emission_factor"]; t=float(changed["CO2e_kg"].sum()); rows.append({"Quantity multiplier":factor,"Total CO2e (kg)":t,"kg CO2e / FU":t/reference})
             lca_sens=pd.DataFrame(rows); st.plotly_chart(px.line(lca_sens,x="Quantity multiplier",y="kg CO2e / FU",markers=True,title=f"LCA sensitivity: {flow}"),use_container_width=True); st.dataframe(lca_sens,use_container_width=True); download_df(lca_sens,"lca_sensitivity.csv")
-        with st.expander("LCA methodological notes"):
-            st.markdown(f"**Assessment:** {assessment}  \n**Year:** {year_ref}  \n**Goal:** {goal}  \n**Boundary:** {boundary}  \n**Functional unit:** {functional_unit}\n\nThis is a **screening-level, single-impact GHG model**. It is not a substitute for a complete ISO-conformant LCA, verified inventory database, multi-impact assessment, allocation procedure, uncertainty analysis or critical review. Record source, geography, technology, year and uncertainty for every emission factor before formal use.")
+            base_contrib=float(inv.loc[inv["Flow"]==flow,"CO2e_kg"].iloc[0]); share=(base_contrib/total*100) if total else 0.; st.info(f"Sensitivity driver: **{flow}** contributes **{share:.1f}%** of baseline GHG burden. Flows with larger contributions generally deserve priority for better emission-factor data and process optimization.")
+        with st.expander("6. Research interpretation & reporting notes"):
+            st.markdown("**Screening-level result:** this module quantifies greenhouse-gas burden from the entered inventory and emission factors. It is not a substitute for a complete ISO-conformant LCA, verified database, multi-impact assessment, allocation procedure, consequential/attributional choice, uncertainty propagation or critical review. For a thesis or paper, report the functional unit, reference flow, system boundary, geography, technology, data year, source of each emission factor, allocation/cut-off rules and uncertainty method. Use the sensitivity results to justify which parameters require improved primary data.")
 
 st.divider(); st.caption("SciMantra Research Tools • Educational/research aid. Verify calculations against the standard method, SOP, instrument protocol, source data and applicable scientific guidelines before use.")
