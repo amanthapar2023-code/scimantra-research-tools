@@ -1,4 +1,4 @@
-name: Apply advanced analysis sidebar label
+name: Normalize Streamlit width API
 
 on:
   push:
@@ -8,35 +8,44 @@ permissions:
   contents: write
 
 jobs:
-  apply-label:
-    if: ${{ !contains(github.event.head_commit.message, 'Apply short advanced analysis label') && !contains(github.event.head_commit.message, 'Advanced Analysis') }}
+  normalize-width-api:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Update sidebar label
+      - name: Replace deprecated Streamlit width arguments
         shell: python
         run: |
           from pathlib import Path
-          p = Path('app.py')
-          s = p.read_text(encoding='utf-8')
-          old = '"📊 Advanced Experimental Data Analysis"'
-          new = '"📊 Advanced Analysis"'
-          if old not in s:
-              raise SystemExit('Advanced Experimental Data Analysis label was not found.')
-          p.write_text(s.replace(old, new), encoding='utf-8')
+          changed = []
+          for p in Path('.').rglob('*.py'):
+              if '.git' in p.parts:
+                  continue
+              s = p.read_text(encoding='utf-8')
+              new = s.replace('use_container_width=True', 'width="stretch"').replace('use_container_width=False', 'width="content"')
+              if new != s:
+                  p.write_text(new, encoding='utf-8')
+                  changed.append(str(p))
+          print('Updated:', changed)
 
-      - name: Syntax check
-        run: python -m py_compile app.py
-
-      - name: Commit direct app update and remove temporary workflow
+      - name: Syntax check Python files
+        shell: bash
         run: |
+          set -e
+          find . -name '*.py' -not -path './.git/*' -print0 | xargs -0 -n1 python -m py_compile
+
+      - name: Commit normalized files when needed
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo 'No deprecated Streamlit width arguments found.'
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app.py
-          git rm .github/workflows/integrate-advanced-analysis.yml
-          git commit -m "Apply short advanced analysis label"
+          git add '*.py'
+          git commit -m "Fix deprecated Streamlit width arguments"
           git push
