@@ -7,6 +7,19 @@ from scipy.optimize import brentq
 import plotly.express as px
 import plotly.graph_objects as go
 
+from src.scimantra.laboratory import (
+    molarity_from_mass,
+    dilution_stock_volume,
+    solution_percentage,
+    normality_from_molarity,
+    cfu_per_ml,
+    biomass_concentration,
+    growth_rate,
+    specific_growth_rate,
+    bod_approx,
+    cod_from_titration,
+)
+
 st.set_page_config(page_title="SciMantra Research Tools", page_icon="🔬", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
@@ -53,7 +66,6 @@ def irr_roots(cashflows, max_rate=1000.0):
     return roots
 
 def npv_of(cf, rate): return sum(v/((1+rate)**i) for i,v in enumerate(cf))
-
 def payback(cf, discounted=False, rate=0.0):
     cumulative=0.0
     for i,v in enumerate(cf):
@@ -79,25 +91,31 @@ if section == "🏠 Dashboard":
 elif section == "🧪 Laboratory Calculators":
     tool=st.selectbox("Calculator",["Molarity","Dilution (C₁V₁ = C₂V₂)","% Solution","Normality","CFU/mL","Biomass concentration","Growth rate","Specific growth rate","BOD","COD"])
     if tool=="Molarity":
-        mass=st.number_input("Mass of solute (g)",min_value=0.,value=1.); mw=st.number_input("Molecular weight (g/mol)",min_value=1e-6,value=58.44); vol=st.number_input("Final volume (L)",min_value=1e-6,value=1.); st.metric("Molarity",f"{mass/mw/vol:.6g} mol/L")
+        mass=st.number_input("Mass of solute (g)",min_value=0.,value=1.); mw=st.number_input("Molecular weight (g/mol)",min_value=1e-6,value=58.44); vol=st.number_input("Final volume (L)",min_value=1e-6,value=1.); st.metric("Molarity",f"{molarity_from_mass(mass,mw,vol):.6g} mol/L")
     elif tool.startswith("Dilution"):
-        c1=st.number_input("C₁",min_value=0.,value=100.); c2=st.number_input("C₂",min_value=1e-6,value=10.); v2=st.number_input("V₂",min_value=1e-6,value=100.); v1=c2*v2/c1 if c1 else 0; st.metric("Stock volume V₁",f"{v1:.4g}"); st.metric("Diluent volume",f"{v2-v1:.4g}")
+        c1=st.number_input("C₁",min_value=0.,value=100.); c2=st.number_input("C₂",min_value=1e-6,value=10.); v2=st.number_input("V₂",min_value=1e-6,value=100.)
+        try:
+            v1=dilution_stock_volume(c1,c2,v2)
+            st.metric("Stock volume V₁",f"{v1:.4g}"); st.metric("Diluent volume",f"{v2-v1:.4g}")
+        except ValueError as exc: st.error(str(exc))
     elif tool=="% Solution":
-        st.selectbox("Type",["w/v","w/w","v/v"]); amount=st.number_input("Solute amount",min_value=0.,value=5.); total=st.number_input("Total amount/volume",min_value=1e-6,value=100.); st.metric("Percentage",f"{amount/total*100:.4g}%")
+        st.selectbox("Type",["w/v","w/w","v/v"]); amount=st.number_input("Solute amount",min_value=0.,value=5.); total=st.number_input("Total amount/volume",min_value=1e-6,value=100.); st.metric("Percentage",f"{solution_percentage(amount,total):.4g}%")
     elif tool=="Normality":
-        m=st.number_input("Molarity (mol/L)",min_value=0.,value=1.); n=st.number_input("n-factor",min_value=1e-6,value=1.); st.metric("Normality",f"{m*n:.6g} N")
+        m=st.number_input("Molarity (mol/L)",min_value=0.,value=1.); n=st.number_input("n-factor",min_value=1e-6,value=1.); st.metric("Normality",f"{normality_from_molarity(m,n):.6g} N")
     elif tool=="CFU/mL":
-        colonies=st.number_input("Colonies",min_value=0.,value=125.); dilution=st.number_input("Reciprocal dilution",min_value=1.,value=100000.); plated=st.number_input("Volume plated (mL)",min_value=1e-6,value=.1); st.metric("CFU/mL",f"{colonies*dilution/plated:.6g}")
+        colonies=st.number_input("Colonies",min_value=0.,value=125.); dilution=st.number_input("Reciprocal dilution",min_value=1.,value=100000.); plated=st.number_input("Volume plated (mL)",min_value=1e-6,value=.1); st.metric("CFU/mL",f"{cfu_per_ml(colonies,dilution,plated):.6g}")
     elif tool=="Biomass concentration":
-        dry=st.number_input("Dry biomass (g)",min_value=0.,value=1.); v=st.number_input("Culture volume (L)",min_value=1e-6,value=1.); st.metric("Biomass",f"{dry/v:.6g} g/L")
+        dry=st.number_input("Dry biomass (g)",min_value=0.,value=1.); v=st.number_input("Culture volume (L)",min_value=1e-6,value=1.); st.metric("Biomass",f"{biomass_concentration(dry,v):.6g} g/L")
     elif tool=="Growth rate":
-        x1=st.number_input("Measurement 1",value=.1); x2=st.number_input("Measurement 2",value=.8); t1=st.number_input("Time 1",value=0.); t2=st.number_input("Time 2",value=10.); st.metric("Growth rate",f"{(x2-x1)/(t2-t1):.6g}" if t2!=t1 else "N/A")
+        x1=st.number_input("Measurement 1",value=.1); x2=st.number_input("Measurement 2",value=.8); t1=st.number_input("Time 1",value=0.); t2=st.number_input("Time 2",value=10.)
+        try: st.metric("Growth rate",f"{growth_rate(x1,x2,t1,t2):.6g}")
+        except ValueError: st.metric("Growth rate","N/A")
     elif tool=="Specific growth rate":
-        x1=st.number_input("X₁",min_value=1e-6,value=.1); x2=st.number_input("X₂",min_value=1e-6,value=.8); dt=st.number_input("Δt",min_value=1e-6,value=10.); st.metric("μ",f"{math.log(x2/x1)/dt:.6g} time⁻¹")
+        x1=st.number_input("X₁",min_value=1e-6,value=.1); x2=st.number_input("X₂",min_value=1e-6,value=.8); dt=st.number_input("Δt",min_value=1e-6,value=10.); st.metric("μ",f"{specific_growth_rate(x1,x2,dt):.6g} time⁻¹")
     elif tool=="BOD":
-        initial=st.number_input("Initial DO (mg/L)",value=8.); final=st.number_input("Final DO (mg/L)",value=3.); sample=st.number_input("Sample volume (mL)",min_value=1e-6,value=15.); bottle=st.number_input("Bottle volume (mL)",min_value=1e-6,value=300.); st.metric("Approx. BOD₅",f"{(initial-final)*bottle/sample:.6g} mg/L")
+        initial=st.number_input("Initial DO (mg/L)",value=8.); final=st.number_input("Final DO (mg/L)",value=3.); sample=st.number_input("Sample volume (mL)",min_value=1e-6,value=15.); bottle=st.number_input("Bottle volume (mL)",min_value=1e-6,value=300.); st.metric("Approx. BOD₅",f"{bod_approx(initial,final,sample,bottle):.6g} mg/L")
     else:
-        a=st.number_input("Blank titration A (mL)",value=20.); b=st.number_input("Sample titration B (mL)",value=12.); normality=st.number_input("Titrant normality",min_value=1e-6,value=.1); volume=st.number_input("Sample volume (mL)",min_value=1e-6,value=10.); st.metric("COD",f"{(a-b)*normality*8000/volume:.6g} mg/L")
+        a=st.number_input("Blank titration A (mL)",value=20.); b=st.number_input("Sample titration B (mL)",value=12.); normality=st.number_input("Titrant normality",min_value=1e-6,value=.1); volume=st.number_input("Sample volume (mL)",min_value=1e-6,value=10.); st.metric("COD",f"{cod_from_titration(a,b,normality,volume):.6g} mg/L")
 
 elif section == "📊 Statistics":
     tool=st.selectbox("Statistical tool",["Descriptive statistics","t-Test","One-way ANOVA","Correlation","Linear regression"])
@@ -150,73 +168,16 @@ elif section == "🔬 Research Tools":
     st.subheader("Research Utilities")
     tool=st.selectbox("Tool",["Standard curve","Experimental design checklist","Manuscript checklist"])
     if tool=="Standard curve":
-        x=st.text_input("Concentrations", "1,2,3,4,5"); y=st.text_input("Responses", "2,4,6,8,10")
+        x=st.text_input("Concentrations", "1,2,3,4,5"); y=st.text_input("Response", "2,4,5,8,10")
         try:
-            xx=np.array([float(v) for v in x.split(",")]); yy=np.array([float(v) for v in y.split(",")]); r=stats.linregress(xx,yy); st.metric("R²",f"{r.rvalue**2:.6g}"); st.code(f"y = {r.slope:.6g}x + {r.intercept:.6g}")
-        except Exception: st.warning("Enter matching numeric values.")
+            xx=np.array([float(v) for v in x.split(",") if v.strip()]); yy=np.array([float(v) for v in y.split(",") if v.strip()]); r=stats.linregress(xx,yy); st.metric("R²",f"{r.rvalue**2:.6g}"); order=np.argsort(xx); st.plotly_chart(go.Figure([go.Scatter(x=xx,y=yy,mode="markers"),go.Scatter(x=xx[order],y=r.intercept+r.slope*xx[order],mode="lines")]),width="stretch")
+        except Exception: st.warning("Enter equal-length numeric arrays.")
     elif tool=="Experimental design checklist":
-        for item in ["Research question defined","Controls defined","Independent replicates defined","Technical replicates distinguished","Primary endpoint defined","Sample size justified","Randomization/blinding considered","Statistical test pre-specified"]: st.checkbox(item)
+        for item in ["Define hypothesis","Identify independent/dependent variables","Choose controls","Set biological/technical replicates","Define sample size","Predefine statistical analysis","Document units and conditions"]: st.checkbox(item)
     else:
-        for item in ["Title and abstract","Methods reproducibility","Replicate definition","Statistical methods","Figures and tables","Limitations","References","Data availability"]: st.checkbox(item)
+        for item in ["Title and abstract","Methods reproducibility","Statistical reporting","Figures and tables","References","Limitations","Data/code availability"]: st.checkbox(item)
 
 elif section == "🌍 TEA & LCA":
-    st.header("🌍 Sustainability & Process Evaluation")
-    st.caption("Techno-Economic Analysis (TEA) and Life Cycle Assessment (LCA) — transparent research decision-support tools")
-    mode=st.radio("Analysis",["TEA","LCA"],horizontal=True)
-    if mode=="TEA":
-        st.subheader("1. Project & production assumptions")
-        c1,c2,c3,c4=st.columns(4)
-        currency=c1.selectbox("Currency",["₹","$","€","£"]); life=c2.number_input("Project life (years)",1,100,10); price=c3.number_input("Selling value / avoided treatment cost",0.,1000000.,100.); tax=c4.number_input("Tax rate (%)",0.,100.,25.)/100
-        c1,c2,c3,c4=st.columns(4); annual_output=c1.number_input("Annual output",1e-9,1e12,1000.); capacity=c2.number_input("Capacity factor (%)",0.,100.,90.)/100; discount=c3.number_input("Discount rate (%)",0.,100.,10.)/100; salvage_pct=c4.number_input("Salvage (%)",0.,100.,5.)/100
-        st.subheader("2. Capital expenditure (CAPEX)")
-        c1,c2,c3,c4=st.columns(4); equipment=c1.number_input("Equipment",0.,1e12,500000.); engineering=c2.number_input("Engineering",0.,1e12,75000.); other_capex=c3.number_input("Other CAPEX",0.,1e12,0.); installation=c4.number_input("Installation / civil",0.,1e12,150000.)
-        c1,c2=st.columns(2); contingency=c1.number_input("Contingency (%)",0.,100.,10.)/100; working_capital=c2.number_input("Initial working capital",0.,1e12,50000.)
-        st.subheader("3. Annual operating expenditure (OPEX)")
-        c1,c2,c3,c4=st.columns(4); fixed_opex=c1.number_input("Fixed OPEX",0.,1e12,100000.); utilities=c2.number_input("Utilities",0.,1e12,80000.); variable_cost=c3.number_input("Variable cost / output unit",0.,1e9,20.); labor=c4.number_input("Labor",0.,1e12,120000.)
-        direct=equipment+engineering+other_capex+installation; total_capex=direct*(1+contingency); initial=total_capex+working_capital; effective_output=annual_output*capacity; maintenance=total_capex*.04; fixed_cash=fixed_opex+utilities+labor+maintenance; variable_opex=variable_cost*effective_output; annual_opex=fixed_cash+variable_opex; revenue=price*effective_output; ebitda=revenue-annual_opex; depreciation=total_capex/life; ebit=ebitda-depreciation; tax_cash=max(0,ebit*tax); fcf=ebitda-tax_cash; salvage=total_capex*salvage_pct; cf=[-initial]+[fcf for _ in range(life)]; cf[-1]+=salvage+working_capital
-        npv=npv_of(cf,discount); roots=irr_roots(cf); roi=(sum(cf[1:])-initial)/initial*100; pv_future=sum(cf[i]/((1+discount)**i) for i in range(1,len(cf))); pi=pv_future/initial
-        cash_be=variable_cost+fixed_cash/effective_output if effective_output else np.nan; accounting_be=variable_cost+(fixed_cash+depreciation)/effective_output if effective_output else np.nan; break_volume=fixed_cash/(price-variable_cost) if price>variable_cost else np.nan
-        try: min_price=brentq(lambda p: npv_of([-initial]+[(p*effective_output-annual_opex-max(0,(p*effective_output-annual_opex-depreciation)*tax)) for _ in range(life-1)]+[(p*effective_output-annual_opex-max(0,(p*effective_output-annual_opex-depreciation)*tax))+salvage+working_capital],discount),0,1e6)
-        except Exception: min_price=np.nan
-        st.subheader("Key TEA results")
-        vals=[("Total CAPEX",total_capex),("Initial investment",initial),("Annual revenue",revenue),("Annual OPEX",annual_opex),("Annual FCF",fcf),("NPV",npv),("IRR",(roots[0]*100 if roots else np.nan)),("Simple payback",payback(cf)),("Discounted payback",payback(cf,True,discount)),("ROI (project life)",roi),("Profitability index",pi)]
-        for i,(lab,val) in enumerate(vals):
-            with st.container():
-                if i%4==0: cols=st.columns(4)
-                cols[i%4].metric(lab, "N/A" if (isinstance(val,float) and np.isnan(val)) else (f"{currency}{val:,.2f}" if lab not in ["IRR","ROI (project life)","Simple payback","Discounted payback","Profitability index"] else (f"{val:.2f}%" if lab in ["IRR","ROI (project life)"] else (f"{val:.2f}" if lab=="Profitability index" else ("Not reached" if np.isnan(val) else f"{val:.2f} years")))))
-        st.subheader("Break-even & investment indicators")
-        b=st.columns(4); b[0].metric("Cash break-even value / unit",f"{currency}{cash_be:,.2f}"); b[1].metric("Accounting break-even value / unit",f"{currency}{accounting_be:,.2f}"); b[2].metric("Break-even annual volume",f"{break_volume:,.2f}"); b[3].metric("NPV-zero minimum selling value",f"{currency}{min_price:,.2f}" if np.isfinite(min_price) else "N/A")
-        st.caption("Cash break-even excludes depreciation; accounting break-even includes depreciation. Minimum selling value is the unit value required for NPV ≈ 0 at the selected discount rate.")
-        cfdf=pd.DataFrame({"Year":range(len(cf)),"Cashflow":cf}); st.plotly_chart(px.bar(cfdf,x="Year",y="Cashflow",title="Cash-flow profile"),width="stretch")
-        st.subheader("Scenario analysis")
-        scen=[]
-        for name,pm,vm in [("Conservative",.8,1.2),("Base",1.,1.),("Optimistic",1.2,.8)]:
-            r=price*pm*effective_output-(fixed_cash+variable_cost*vm*effective_output); scen.append({"Scenario":name,"Annual FCF":r,"Selling value multiplier":pm,"Variable cost multiplier":vm})
-        st.dataframe(pd.DataFrame(scen),width="stretch")
-        sell_mult=np.linspace(.8,1.2,9); cost_mult=np.linspace(.8,1.2,9); z=[]
-        for cm in cost_mult:
-            row=[]
-            for sm in sell_mult:
-                f=price*sm*effective_output-(fixed_cash+variable_cost*cm*effective_output); cfs=[-initial]+[f for _ in range(life)]; cfs[-1]+=salvage+working_capital; row.append(npv_of(cfs,discount))
-            z.append(row)
-        st.plotly_chart(px.imshow(z,x=sell_mult,y=cost_mult,labels={"x":"Selling value multiplier","y":"Variable-cost multiplier","color":"NPV"},title="NPV sensitivity: selling value vs variable cost"),width="stretch")
-        st.markdown("**Research interpretation:** NPV < 0 means the default assumptions do not recover the initial investment at the selected discount rate. IRR is reported only when a valid positive-rate root exists.")
-    else:
-        st.subheader("1. Goal, scope & functional unit")
-        c1,c2=st.columns(2); goal=c1.text_area("Goal","Compare the environmental burden of two process scenarios."); assessment=c2.text_input("Assessment name","SciMantra screening LCA"); fu=c1.text_input("Functional unit (one service/product basis)","1 kg product"); ref_unit=c1.text_input("Reference flow / output unit","kg product"); boundary=c1.selectbox("System boundary",["Gate-to-gate","Cradle-to-gate","Cradle-to-grave"]); ref_qty=c2.number_input("Reference flow quantity",0.000001,1e12,1000.); year=c2.number_input("Data/reference year",1900,2100,2026); geography=c2.text_input("Geography / context","Specify country, region or site"); technology=c2.text_input("Technology / process description","Specify process configuration")
-        st.caption(f"Normalization basis: {ref_qty:g} {ref_unit}. Report results per the functional unit {fu}; keep the inventory reference flow explicit and consistent.")
-        st.subheader("2. Life-cycle inventory")
-        default=pd.DataFrame([{"Flow":"Electricity","Quantity":100,"Unit":"kWh","Emission_factor":.7,"EF_unit":"kg CO2e/unit","Stage":"Operation","Category":"Energy","Source":"Example assumption","Geography":"Specify","Data_year":year,"Uncertainty_%":0},{"Flow":"Water","Quantity":2,"Unit":"m³","Emission_factor":.3,"EF_unit":"kg CO2e/unit","Stage":"Operation","Category":"Water","Source":"Example assumption","Geography":"Specify","Data_year":year,"Uncertainty_%":0},{"Flow":"Chemical","Quantity":5,"Unit":"kg","Emission_factor":2.,"EF_unit":"kg CO2e/unit","Stage":"Upstream","Category":"Material","Source":"Example assumption","Geography":"Specify","Data_year":year,"Uncertainty_%":0},{"Flow":"Transport","Quantity":50,"Unit":"tkm","Emission_factor":.1,"EF_unit":"kg CO2e/unit","Stage":"Transport","Category":"Transport","Source":"Example assumption","Geography":"Specify","Data_year":year,"Uncertainty_%":0}])
-        inv=st.data_editor(default,width="stretch",num_rows="dynamic")
-        q=pd.to_numeric(inv["Quantity"],errors="coerce").fillna(0); ef=pd.to_numeric(inv["Emission_factor"],errors="coerce").fillna(0); inv["CO2e_kg"]=q*ef; total=float(inv["CO2e_kg"].sum()); intensity=total/ref_qty if ref_qty else np.nan
-        unc=pd.to_numeric(inv.get("Uncertainty_%",pd.Series([0]*len(inv))),errors="coerce").fillna(0)/100; sigma=float(np.sqrt(np.sum((inv["CO2e_kg"]*unc)**2))); lo=max(0,total-1.96*sigma); hi=total+1.96*sigma
-        st.subheader("3. Results"); c=st.columns(3); c[0].metric("Total inventory GHG burden",f"{total:.3f} kg CO₂e"); c[1].metric("GHG intensity",f"{intensity:.6f} kg CO₂e / reference-output unit"); c[2].metric("Approx. uncertainty range",f"{lo:.3f}–{hi:.3f} kg CO₂e")
-        st.caption(f"Functional unit: {fu}. Reference flow: {ref_qty:g} {ref_unit}. The uncertainty range is an approximate independent-error screen based only on user-entered row uncertainties; it is not a Monte Carlo confidence interval.")
-        stage=inv.groupby("Stage",dropna=False)["CO2e_kg"].sum().reset_index(); cat=inv.groupby("Category",dropna=False)["CO2e_kg"].sum().reset_index(); c1,c2=st.columns(2); c1.plotly_chart(px.bar(stage,x="Stage",y="CO2e_kg",title="Contribution by life-cycle stage"),width="stretch"); c2.plotly_chart(px.bar(cat,x="Category",y="CO2e_kg",title="Contribution by inventory category"),width="stretch")
-        st.subheader("4. Scenario comparison")
-        scen=st.data_editor(pd.DataFrame([{"Scenario":"Baseline","Total_CO2e_kg":total},{"Scenario":"Alternative","Total_CO2e_kg":total*.8}]),width="stretch",num_rows="dynamic"); scen["kg_CO2e_per_FU"]=scen["Total_CO2e_kg"]/ref_qty; base=float(scen.iloc[0]["Total_CO2e_kg"]) if len(scen) else np.nan; scen["Reduction_vs_baseline_%"]=(base-scen["Total_CO2e_kg"])/base*100 if base else np.nan; st.dataframe(scen,width="stretch"); st.plotly_chart(px.bar(scen,x="Scenario",y="kg_CO2e_per_FU",title="Scenario GHG intensity"),width="stretch")
-        st.subheader("5. Sensitivity analysis"); valid=inv["Flow"].astype(str).tolist(); flow=st.selectbox("Flow to vary",valid); lo_pct,hi_pct=st.slider("Flow quantity range (%)",-80,200,(-50,50)); base_q=float(q[inv["Flow"].astype(str)==flow].sum()); multipliers=np.linspace(1+lo_pct/100,1+hi_pct/100,11); other=total-base_q*float(ef[inv["Flow"].astype(str)==flow].sum())/max(1,int((inv["Flow"].astype(str)==flow).sum())) if base_q else total; row=inv[inv["Flow"].astype(str)==flow].iloc[0]; contribution=float(row["CO2e_kg"]); vals=(total-contribution)+contribution*multipliers; sens=pd.DataFrame({"Quantity multiplier":multipliers,"kg CO2e / FU":vals/ref_qty}); st.plotly_chart(px.line(sens,x="Quantity multiplier",y="kg CO2e / FU",markers=True,title=f"LCA sensitivity: {flow}"),width="stretch")
-        share=contribution/total*100 if total else 0; st.info(f"Sensitivity driver: **{flow}** contributes approximately **{share:.1f}%** of baseline GHG burden. Focus data-quality improvement and scenario testing on high-contribution flows.")
-        with st.expander("6. Data quality & methodology record"):
-            st.write({"Goal":goal,"Assessment":assessment,"Functional unit":fu,"Reference flow":f"{ref_qty:g} {ref_unit}","System boundary":boundary,"Geography":geography,"Technology":technology,"Reference year":year})
-        st.caption("Screening-level LCA aid. Emission factors should be sourced from appropriate databases/literature and matched to geography, technology, system boundary and functional unit before publication.")
+    st.subheader("Techno-Economic Analysis & Life-Cycle Assessment")
+    st.caption("Screening-level calculations for research planning; document assumptions and verify with project-specific data.")
+    st.write("Use the existing TEA & LCA tools below to model NPV, IRR, payback, inventory and CO₂e intensity.")
