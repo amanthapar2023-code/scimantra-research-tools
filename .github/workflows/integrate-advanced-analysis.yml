@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   integrate:
-    if: ${{ !contains(github.event.head_commit.message, 'Integrate advanced analysis navigation') }}
+    if: ${{ !contains(github.event.head_commit.message, 'Shorten advanced analysis sidebar label') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -17,24 +17,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Integrate navigation
+      - name: Shorten sidebar label
         shell: python
         run: |
           from pathlib import Path
           p = Path('app.py')
           s = p.read_text(encoding='utf-8')
-          old = '"📈 Data Analyzer", "🔬 Research Tools", "🌍 TEA & LCA"'
-          new = '"📈 Data Analyzer", "📊 Advanced Experimental Data Analysis", "🔬 Research Tools", "🌍 TEA & LCA"'
+          old = '"📊 Advanced Experimental Data Analysis"'
+          new = '"📊 Advanced Analysis"'
           if old not in s:
-              raise SystemExit('Expected navigation pattern was not found; no change made.')
+              raise SystemExit('Expected advanced analysis sidebar label was not found; no change made.')
           s = s.replace(old, new, 1)
-          marker = 'elif section == "📊 Advanced Experimental Data Analysis":\n    import runpy\n    runpy.run_path("pages/7_Advanced_Experimental_Data_Analysis.py")\n'
-          if marker not in s:
-              anchor = 'def download_df(df, filename="scimantra_results.csv"):'
-              insert = '\n' + marker + '\n'
-              # Add a branch immediately before the first calculator branch.
-              branch_anchor = 'if section == "🏠 Dashboard":'
-              s = s.replace(branch_anchor, marker + '\n' + branch_anchor, 1)
           p.write_text(s, encoding='utf-8')
 
       - name: Syntax check
@@ -46,5 +39,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app.py
           git rm .github/workflows/integrate-advanced-analysis.yml
-          git commit -m "Integrate advanced analysis navigation"
+          git commit -m "Shorten advanced analysis sidebar label"
           git push
