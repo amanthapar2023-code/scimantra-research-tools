@@ -6,9 +6,14 @@ import pandas as pd
 import streamlit as st
 from scipy import stats
 
+from src.scimantra.entitlements import require
+
 st.set_page_config(page_title="SciMantra Statistical Copilot", page_icon="🧠", layout="wide")
 st.title("🧠 SciMantra Statistical Copilot")
 st.caption("Deterministic statistical analysis for research datasets, with transparent assumptions and publication-ready drafts.")
+
+if not require("statistical_copilot"):
+    st.stop()
 
 if "copilot_df" not in st.session_state:
     st.session_state.copilot_df = None
@@ -36,7 +41,6 @@ col1, col2 = st.columns(2)
 y = col1.selectbox("Outcome / response variable", numeric_cols)
 groups = [c for c in df.columns if c != y]
 group_col = col2.selectbox("Grouping / treatment variable (optional)", ["None"] + groups)
-
 clean_y = pd.to_numeric(df[y], errors="coerce")
 st.write(f"**{y}**: n={clean_y.notna().sum():,}, mean={clean_y.mean():.5g}, SD={clean_y.std():.5g}, median={clean_y.median():.5g}")
 
@@ -48,7 +52,7 @@ if group_col != "None":
         st.subheader("2. Group comparison")
         test = st.selectbox("Test", ["Welch t-test (2 groups)", "Mann–Whitney U (2 groups)", "One-way ANOVA (2+ groups)", "Kruskal–Wallis (2+ groups)"])
         arrays = [g["y"].to_numpy(dtype=float) for _, g in work.groupby("group") if len(g) >= 2]
-        names = [str(k) for k, _ in work.groupby("group") if len(_) >= 2]
+        names = [str(k) for k, g in work.groupby("group") if len(g) >= 2]
         result = None
         if st.button("Run statistical test", type="primary"):
             if len(arrays) < 2:
@@ -68,7 +72,6 @@ if group_col != "None":
             else:
                 stat, p = stats.kruskal(*arrays)
                 result = ("Kruskal–Wallis", stat, p)
-
             if result:
                 test_name, statistic, pvalue = result
                 st.metric("p-value", f"{pvalue:.6g}")
@@ -99,11 +102,7 @@ st.subheader("4. Results draft")
 res = st.session_state.get("copilot_result")
 if res:
     direction = "statistically significant evidence" if res["pvalue"] < 0.05 else "no statistically significant evidence"
-    draft = (f"A {res['test']} was conducted to compare {res['outcome']} across {res['group']} groups "
-             f"({', '.join(res['groups'])}). The analysis yielded a test statistic of {res['statistic']:.4g} "
-             f"and p={res['pvalue']:.4g}, indicating {direction} of a difference at α=0.05. "
-             "These findings should be interpreted alongside effect sizes, confidence intervals, replicate structure, "
-             "assumption checks and the biological context of the experiment.")
+    draft = (f"A {res['test']} was conducted to compare {res['outcome']} across {res['group']} groups ({', '.join(res['groups'])}). The analysis yielded a test statistic of {res['statistic']:.4g} and p={res['pvalue']:.4g}, indicating {direction} of a difference at α=0.05. These findings should be interpreted alongside effect sizes, confidence intervals, replicate structure, assumption checks and the biological context of the experiment.")
     st.text_area("Editable Results paragraph", draft, height=180)
     st.download_button("⬇️ Download Results draft", draft, "scimantra_results_draft.txt", "text/plain")
 else:
