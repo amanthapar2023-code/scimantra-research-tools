@@ -16,7 +16,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Replace deprecated Streamlit width arguments
+      - name: Replace deprecated Streamlit width arguments and fix page embedding
         shell: python
         run: |
           from pathlib import Path
@@ -26,6 +26,9 @@ jobs:
                   continue
               s = p.read_text(encoding='utf-8')
               new = s.replace('use_container_width=True', 'width="stretch"').replace('use_container_width=False', 'width="content"')
+              if p.as_posix() == 'pages/7_Advanced_Experimental_Data_Analysis.py':
+                  duplicate = 'st.set_page_config(page_title="H₂S Research Analysis Suite", page_icon="📊", layout="wide")\n\n'
+                  new = new.replace(duplicate, '', 1)
               if new != s:
                   p.write_text(new, encoding='utf-8')
                   changed.append(str(p))
@@ -41,11 +44,11 @@ jobs:
         shell: bash
         run: |
           if git diff --quiet; then
-            echo 'No deprecated Streamlit width arguments found.'
+            echo 'No normalization changes needed.'
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add '*.py'
-          git commit -m "Fix deprecated Streamlit width arguments"
+          git add '*.py' '.github/workflows/integrate-advanced-analysis.yml'
+          git commit -m "Fix embedded advanced analysis page config"
           git push
