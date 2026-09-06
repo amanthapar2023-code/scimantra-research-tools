@@ -8,8 +8,6 @@ from scipy.optimize import curve_fit
 import plotly.express as px
 import plotly.graph_objects as go
 
-st.set_page_config(page_title="H₂S Research Analysis Suite", page_icon="📊", layout="wide")
-
 # -----------------------------------------------------------------------------
 # Research-specific knowledge base assembled from the user's previously shared
 # research reports, PR material and analysis work. These are labelled by status
