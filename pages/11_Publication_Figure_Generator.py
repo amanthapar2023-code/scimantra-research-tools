@@ -5,9 +5,14 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+from src.scimantra.entitlements import require
+
 st.set_page_config(page_title="SciMantra Publication Figure Generator", page_icon="📈", layout="wide")
 st.title("📈 SciMantra Publication Figure Generator")
 st.caption("Create research-ready exploratory figures from CSV/Excel data. Always verify labels, statistics and experimental design before publication.")
+
+if not require("publication_figures"):
+    st.stop()
 
 if "figure_df" not in st.session_state:
     st.session_state.figure_df = None
@@ -31,17 +36,7 @@ if not numeric:
     st.stop()
 
 st.success(f"Loaded {len(df):,} rows × {len(df.columns):,} columns")
-
-figure_type = st.selectbox("Figure type", [
-    "Group mean ± SD",
-    "Group mean ± SEM",
-    "Individual replicates",
-    "Scatter + regression",
-    "Correlation heatmap",
-    "Time-course",
-    "Histogram",
-])
-
+figure_type = st.selectbox("Figure type", ["Group mean ± SD", "Group mean ± SEM", "Individual replicates", "Scatter + regression", "Correlation heatmap", "Time-course", "Histogram"])
 st.subheader("Figure settings")
 title = st.text_input("Figure title", "Research data")
 x_label = st.text_input("X-axis label", "")
@@ -49,7 +44,6 @@ y_label = st.text_input("Y-axis label", "")
 fig_width = st.slider("Width", 5, 14, 8)
 fig_height = st.slider("Height", 4, 10, 6)
 font_size = st.slider("Font size", 8, 22, 12)
-
 fig = None
 
 if figure_type in ["Group mean ± SD", "Group mean ± SEM", "Individual replicates"]:
@@ -60,13 +54,12 @@ if figure_type in ["Group mean ± SD", "Group mean ± SEM", "Individual replicat
     grouped = work.groupby("group")["value"]
     stats_df = grouped.agg(["count", "mean", "std"]).reset_index()
     stats_df["sem"] = stats_df["std"] / np.sqrt(stats_df["count"].clip(lower=1))
-
     st.dataframe(stats_df.round(5), width="stretch", hide_index=True)
     if st.button("Generate figure", type="primary"):
         fig, ax = plt.subplots(figsize=(fig_width, fig_height))
         x = np.arange(len(stats_df))
         if figure_type == "Individual replicates":
-            for i, (name, vals) in enumerate(grouped):
+            for i, (_, vals) in enumerate(grouped):
                 jitter = np.linspace(-0.12, 0.12, len(vals)) if len(vals) > 1 else np.array([0.0])
                 ax.scatter(np.full(len(vals), i) + jitter, vals, alpha=0.8, s=35)
             ax.set_xticks(x, stats_df["group"])
@@ -80,7 +73,6 @@ if figure_type in ["Group mean ± SD", "Group mean ± SEM", "Individual replicat
         ax.tick_params(axis="both", labelsize=font_size - 1)
         ax.grid(axis="y", alpha=0.2)
         fig.tight_layout()
-
 elif figure_type == "Scatter + regression":
     x = st.selectbox("X variable", numeric)
     y = st.selectbox("Y variable", [c for c in numeric if c != x] or numeric)
@@ -100,7 +92,6 @@ elif figure_type == "Scatter + regression":
         ax.tick_params(axis="both", labelsize=font_size - 1)
         ax.grid(alpha=0.2)
         fig.tight_layout()
-
 elif figure_type == "Correlation heatmap":
     corr = df[numeric].corr()
     if st.button("Generate figure", type="primary"):
@@ -114,7 +105,6 @@ elif figure_type == "Correlation heatmap":
         fig.colorbar(image, ax=ax, label="Correlation")
         ax.set_title(title, fontsize=font_size + 2)
         fig.tight_layout()
-
 elif figure_type == "Time-course":
     x = st.selectbox("Time variable", all_cols)
     y = st.selectbox("Response variable", numeric)
@@ -138,7 +128,6 @@ elif figure_type == "Time-course":
         ax.tick_params(axis="both", labelsize=font_size - 1)
         ax.grid(alpha=0.2)
         fig.tight_layout()
-
 else:
     x = st.selectbox("Variable", numeric)
     bins = st.slider("Bins", 5, 60, 20)
