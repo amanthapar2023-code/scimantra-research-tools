@@ -23,14 +23,14 @@ y = st.selectbox("Y / numeric outcome", numeric)
 kind = st.selectbox("Figure type", figure_types())
 
 st.caption("Choose the figure type according to the data structure and research question. The tool does not decide scientific significance from the plot.")
-if st.button("Generate figure", type="primary", use_container_width=True):
+if st.button("Generate figure", type="primary", width="stretch"):
     fig = make_figure(df, kind, x, y)
-    st.pyplot(fig, use_container_width=True)
+    st.pyplot(fig, width="stretch")
     png = figure_png(fig) if False else None
     # Regenerate for download because the display call may close the figure.
     fig2 = make_figure(df, kind, x, y)
     png = figure_png(fig2)
-    st.download_button("⬇️ Download 300-dpi PNG", png, "scimantra_publication_figure.png", "image/png", use_container_width=True)
+    st.download_button("⬇️ Download 300-dpi PNG", png, "scimantra_publication_figure.png", "image/png", width="stretch")
 
 st.divider()
 st.subheader("Figure integrity checklist")

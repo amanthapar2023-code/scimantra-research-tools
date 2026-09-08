@@ -10,7 +10,7 @@ if "method_design" not in st.session_state:
     st.session_state.method_design = design_from_title("")
 
 title = st.text_input("Research title / study question", value=st.session_state.get("ri_title", ""))
-if st.button("Build methodology blueprint", type="primary", use_container_width=True):
+if st.button("Build methodology blueprint", type="primary", width="stretch"):
     st.session_state.method_design = design_from_title(title)
     st.session_state.method_title = title
 
@@ -36,12 +36,12 @@ a.metric("Design readiness", f"{score['score']}%")
 b.metric("Checks addressed", f"{score['present']}/{score['total']}")
 c.metric("Checks needing detail", f"{score['total'] - score['present']}")
 
-st.dataframe(pd.DataFrame(audit), use_container_width=True, hide_index=True)
+st.dataframe(pd.DataFrame(audit), width="stretch", hide_index=True)
 
 st.subheader("🧑‍⚖️ Reviewer challenge questions")
 for q in reviewer_challenges(design):
     st.write("• " + q)
 
 export = pd.DataFrame(audit).to_csv(index=False).encode()
-st.download_button("⬇️ Export design audit", export, "scimantra_experimental_design_audit.csv", "text/csv", use_container_width=True)
+st.download_button("⬇️ Export design audit", export, "scimantra_experimental_design_audit.csv", "text/csv", width="stretch")
 st.success("Design principle: every important conclusion should have a pre-specified measurement, comparator, replication structure, and analysis path.")

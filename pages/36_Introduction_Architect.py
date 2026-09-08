@@ -22,7 +22,7 @@ with st.expander("Import / edit matrix", expanded=not bool(st.session_state.get(
             for j, field in enumerate(["Problem", "Challenges", "Research solution", "Technology / approach", "Innovation", "Difference from previous work", "Research gap", "Method", "Key result", "Limitation", "Evidence location"]):
                 record[field] = cols[j % 2].text_area(field, record.get(field, ""), key=f"ia_{field}_{i}", height=68)
 
-if st.button("🧠 Build Introduction + Detect Gaps", type="primary", use_container_width=True):
+if st.button("🧠 Build Introduction + Detect Gaps", type="primary", width="stretch"):
     if not title.strip():
         st.error("Enter a research title first.")
     else:
@@ -56,7 +56,7 @@ if bp:
 
     st.subheader("📄 Drafting blueprint")
     st.code(render_markdown(bp), language="markdown")
-    st.download_button("⬇️ Export Introduction blueprint", render_markdown(bp).encode("utf-8"), "scimantra_introduction_blueprint.md", "text/markdown", use_container_width=True)
+    st.download_button("⬇️ Export Introduction blueprint", render_markdown(bp).encode("utf-8"), "scimantra_introduction_blueprint.md", "text/markdown", width="stretch")
 
     if bp["result_evidence_present"]:
         st.warning("Key-result fields exist in the matrix. Treat them as source material only after researcher verification and source anchoring.")

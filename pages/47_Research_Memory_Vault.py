@@ -36,7 +36,7 @@ st.divider()
 query = st.text_input("🔎 Search project memory")
 filtered = search_memory(memory, query)
 if filtered:
-    st.dataframe(pd.DataFrame(filtered), use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame(filtered), width="stretch", hide_index=True)
     st.download_button("Download memory as Markdown", export_memory(filtered), "scimantra_research_memory.md", "text/markdown")
 else:
     st.info("No memory entries yet. Record literature insights, decisions, experiments, failed approaches, evidence, claims and tasks as the project evolves.")

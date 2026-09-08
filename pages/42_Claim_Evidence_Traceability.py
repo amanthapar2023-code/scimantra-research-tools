@@ -25,7 +25,7 @@ if st.session_state.claim_records:
     c1.metric("Claims", audit["total"])
     c2.metric("Evidence-linked", audit["linked"])
     c3.metric("Traceability", f"{audit['coverage_percent']}%")
-    st.dataframe(pd.DataFrame(st.session_state.claim_records), use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame(st.session_state.claim_records), width="stretch", hide_index=True)
     st.download_button("Download traceability CSV", pd.DataFrame(st.session_state.claim_records).to_csv(index=False), "claim_evidence_traceability.csv", "text/csv")
 else:
     st.info("Add important Results, Discussion, Introduction, and Conclusion claims one at a time. Empty evidence locations remain explicitly unlinked.")

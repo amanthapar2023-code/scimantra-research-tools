@@ -21,7 +21,7 @@ if st.button("🚀 Build Project Cockpit", type="primary"):
 health = st.session_state.get("project_copilot_health")
 if health:
     st.metric("Overall project health (planning heuristic)", f"{health['score']:.1f}/100", health["label"])
-    st.dataframe(pd.DataFrame([{"Layer": k, "Readiness": v} for k, v in health["components"].items()]), use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame([{"Layer": k, "Readiness": v} for k, v in health["components"].items()]), width="stretch", hide_index=True)
     snapshot = project_snapshot(title, health, len(st.session_state.get("research_memory", [])))
     actions = snapshot["Priority actions"]
     st.subheader("Priority actions")

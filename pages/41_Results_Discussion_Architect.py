@@ -18,7 +18,7 @@ for prompt in discussion_prompts(comparison, hypothesis):
     st.write("• " + prompt)
 
 st.subheader("3. Claim-strength ladder")
-st.dataframe(pd.DataFrame(claim_levels()), use_container_width=True, hide_index=True)
+st.dataframe(pd.DataFrame(claim_levels()), width="stretch", hide_index=True)
 
 st.info("Evidence rule: an observed difference is not automatically a statistically significant result, a mechanism, a causal effect, or a generalizable finding. Each stronger claim requires corresponding evidence and assumptions.")
 

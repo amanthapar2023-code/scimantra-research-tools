@@ -15,7 +15,7 @@ direction = st.text_area("Proposed novelty / research direction", placeholder="E
 records = st.session_state.get("em_records", [empty_record() for _ in range(5)])
 papers = st.session_state.get("ri_papers", [])
 
-if st.button("🔎 Run collision radar", type="primary", use_container_width=True):
+if st.button("🔎 Run collision radar", type="primary", width="stretch"):
     if not title.strip() and not direction.strip():
         st.error("Enter a research title or proposed direction first.")
     else:
@@ -45,7 +45,7 @@ if result:
 
     st.subheader("Closest retrieved literature")
     if result["collisions"]:
-        st.dataframe(pd.DataFrame(result["collisions"]), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(result["collisions"]), width="stretch", hide_index=True)
     else:
         st.write("No close title-level collisions were found in the available metadata.")
 
@@ -69,4 +69,4 @@ if result:
     for i, check in enumerate(checks, 1): st.checkbox(check, key=f"novelty_check_{i}")
 
     export = pd.DataFrame(result["collisions"])
-    st.download_button("⬇️ Export collision report", export.to_csv(index=False).encode(), "scimantra_novelty_collision_report.csv", "text/csv", use_container_width=True)
+    st.download_button("⬇️ Export collision report", export.to_csv(index=False).encode(), "scimantra_novelty_collision_report.csv", "text/csv", width="stretch")

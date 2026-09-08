@@ -25,7 +25,7 @@ if rows:
     a.metric("Reviewer attacks", score["total"])
     b.metric("Addressed", score["resolved"])
     c.metric("Readiness", f"{score['readiness_percent']}%")
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
     st.download_button("Download reviewer attack report", pd.DataFrame(rows).to_csv(index=False), "reviewer_attack_report.csv", "text/csv")
 else:
     st.info("Enter your design and results summary, then launch the adversarial review.")

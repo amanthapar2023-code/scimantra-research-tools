@@ -35,9 +35,9 @@ if st.session_state.graph_nodes:
     a.metric("Nodes", audit["nodes"]); b.metric("Relationships", audit["edges"])
     c.metric("Isolated nodes", audit["isolated_nodes"]); d.metric("Connected", f"{audit['connected_percent']}%")
     st.subheader("Nodes")
-    st.dataframe(pd.DataFrame(st.session_state.graph_nodes), use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame(st.session_state.graph_nodes), width="stretch", hide_index=True)
     st.subheader("Relationships")
-    st.dataframe(pd.DataFrame(st.session_state.graph_edges), use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame(st.session_state.graph_edges), width="stretch", hide_index=True)
     st.download_button("Export graph as Markdown", export_graph(st.session_state.graph_nodes, st.session_state.graph_edges), "research_dependency_graph.md", "text/markdown")
 else:
     st.info("Start by adding your research question, hypothesis, experiment, dataset, analysis, result, claim, evidence, and conclusion as nodes.")

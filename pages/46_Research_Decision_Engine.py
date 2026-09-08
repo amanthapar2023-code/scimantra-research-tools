@@ -22,7 +22,7 @@ rows = st.session_state.get("decision_rows", [])
 if rows:
     summary = decision_summary(rows)
     st.success(f"Top current priority: {summary['top_action']} ({summary['priority']:.1f}/100)")
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
     st.download_button("Download decision queue", export_decisions(rows), "research_decision_queue.md", "text/markdown")
 else:
     st.info("Enter your current uncertainty levels to generate a prioritized research-action queue.")
