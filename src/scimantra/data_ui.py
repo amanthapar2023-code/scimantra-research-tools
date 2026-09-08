@@ -38,10 +38,23 @@ def _summary(df: pd.DataFrame, selected: list[str]) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def _sheet_score(df: pd.DataFrame) -> tuple[int, int]:
-    numeric = len(df.select_dtypes(include=np.number).columns)
+def _measurement_columns(df: pd.DataFrame) -> list[str]:
+    """Detect numeric columns, including numbers imported as text."""
+    numeric = []
+    for col in df.columns:
+        converted = pd.to_numeric(df[col], errors="coerce")
+        original_nonnull = int(df[col].notna().sum())
+        numeric_nonnull = int(converted.notna().sum())
+        if original_nonnull and numeric_nonnull / original_nonnull >= 0.8:
+            numeric.append(col)
+    return numeric
+
+
+def _sheet_score(df: pd.DataFrame) -> tuple[int, int, int]:
+    measurement_cols = _measurement_columns(df)
+    numeric_cells = sum(int(pd.to_numeric(df[c], errors="coerce").notna().sum()) for c in measurement_cols)
     nonempty = int(df.notna().any(axis=1).sum())
-    return numeric, nonempty
+    return len(measurement_cols), numeric_cells, nonempty
 
 
 def render() -> None:
@@ -68,10 +81,16 @@ def render() -> None:
                     candidate = pd.read_excel(book, sheet_name=sheet, nrows=1000)
                     sheet_scores[sheet] = _sheet_score(candidate)
                 ranked = sorted(sheets, key=lambda s: sheet_scores[s], reverse=True)
-                default_idx = 0
+                default_sheet = ranked[0]
                 st.markdown("### 📑 Excel worksheet")
-                st.caption("SciMantra ranks worksheets by numeric content so presentation/cover sheets do not get mistaken for experimental data.")
-                sheet_name = st.selectbox("Choose worksheet", sheets, index=default_idx, format_func=lambda s: f"{s}  •  {sheet_scores[s][0]} numeric columns")
+                st.caption("SciMantra automatically prioritizes worksheets containing measurement-like numeric data. You can change the selection at any time.")
+                options = [default_sheet] + [s for s in sheets if s != default_sheet]
+                def _fmt(s):
+                    cols, cells, rows = sheet_scores[s]
+                    return f"{s}  •  {cols} measurement columns  •  {cells:,} numeric cells"
+                sheet_name = st.selectbox("Choose worksheet", options, index=0, format_func=_fmt)
+                if sheet_name != default_sheet:
+                    st.info(f"Selected worksheet: **{sheet_name}**. SciMantra's automatic recommendation was **{default_sheet}** because it contained the strongest measurement signal.")
                 if sheet_scores[sheet_name][0] == 0:
                     st.warning("This worksheet appears to contain mostly text/presentation content. Select the worksheet containing your experimental measurements.")
             else:
@@ -90,7 +109,7 @@ def render() -> None:
         st.warning("The selected worksheet contains no rows.")
         return
 
-    numeric = df.select_dtypes(include=np.number).columns.tolist()
+    numeric = _measurement_columns(df)
     categorical = [c for c in df.columns if c not in numeric]
     missing = int(df.isna().sum().sum())
     duplicate = int(df.duplicated().sum())
@@ -98,12 +117,12 @@ def render() -> None:
     m = st.columns(5)
     m[0].metric("Rows", f"{len(df):,}")
     m[1].metric("Columns", f"{len(df.columns):,}")
-    m[2].metric("Numeric", f"{len(numeric):,}")
+    m[2].metric("Measurements", f"{len(numeric):,}")
     m[3].metric("Missing cells", f"{missing:,}")
     m[4].metric("Duplicate rows", f"{duplicate:,}")
 
     if not numeric:
-        st.warning("No numeric measurement columns were detected in the selected worksheet. For H₂S, concentration, pH, time or other experimental measurements, select the worksheet containing those numeric observations.")
+        st.warning("No measurement columns were detected. For H₂S research, select the worksheet containing concentration, time, pH or other numeric observations.")
 
     tabs = st.tabs(["🔎 Data", "🧹 Quality", "📊 Statistics", "🧬 Replicates", "📈 Visualize", "🔗 Relationships", "⬇️ Export"])
 
@@ -150,12 +169,13 @@ def render() -> None:
         else:
             group_col = st.selectbox("Grouping variable", categorical)
             response = st.selectbox("Response variable", numeric)
-            grouped = df[[group_col, response]].dropna().groupby(group_col)[response]
+            grouped = df[[group_col, response]].dropna().assign(**{response: lambda d: pd.to_numeric(d[response], errors="coerce")}).dropna().groupby(group_col)[response]
             result = grouped.agg(N="count", Mean="mean", SD="std", Median="median", Min="min", Max="max").reset_index()
             result["SEM"] = result["SD"] / np.sqrt(result["N"]); result["CV %"] = np.where(result["Mean"] != 0, result["SD"] / result["Mean"] * 100, np.nan)
             result = result[[group_col, "N", "Mean", "SD", "SEM", "CV %", "Median", "Min", "Max"]]
             st.dataframe(result.round(6), width="stretch", hide_index=True)
-            st.plotly_chart(px.box(df, x=group_col, y=response, points="all", title=f"Replicate distribution — {response} by {group_col}"), width="stretch")
+            plot_df = df[[group_col, response]].copy(); plot_df[response] = pd.to_numeric(plot_df[response], errors="coerce")
+            st.plotly_chart(px.box(plot_df.dropna(), x=group_col, y=response, points="all", title=f"Replicate distribution — {response} by {group_col}"), width="stretch")
             st.caption("N is the number of non-missing observations per group. Interpret biological and technical replicates according to your experimental design.")
 
     with tabs[4]:
@@ -163,38 +183,32 @@ def render() -> None:
         else:
             chart = st.selectbox("Chart", ["Distribution", "Box plot", "Scatter plot", "Time/sequence trend"])
             if chart in {"Distribution", "Box plot"}:
-                col = st.selectbox("Variable", numeric)
-                fig = px.histogram(df, x=col, marginal="box", title=f"Distribution — {col}") if chart == "Distribution" else px.box(df, y=col, points="all", title=f"Box plot — {col}")
+                col = st.selectbox("Variable", numeric); plot_df = df.copy(); plot_df[col] = pd.to_numeric(plot_df[col], errors="coerce")
+                fig = px.histogram(plot_df, x=col, marginal="box", title=f"Distribution — {col}") if chart == "Distribution" else px.box(plot_df, y=col, points="all", title=f"Box plot — {col}")
                 st.plotly_chart(fig, width="stretch")
             elif chart == "Scatter plot":
-                xcol, ycol = st.columns(2); x = xcol.selectbox("X variable", numeric); y = ycol.selectbox("Y variable", numeric, index=min(1, len(numeric)-1))
-                st.plotly_chart(px.scatter(df, x=x, y=y, trendline="ols", title=f"{y} vs {x}"), width="stretch")
-                clean = df[[x, y]].dropna()
+                xcol, ycol = st.columns(2); x = xcol.selectbox("X variable", numeric); y = ycol.selectbox("Y variable", numeric, index=min(1, len(numeric)-1)); plot_df = df[[x,y]].copy(); plot_df[x]=pd.to_numeric(plot_df[x],errors="coerce"); plot_df[y]=pd.to_numeric(plot_df[y],errors="coerce")
+                clean=plot_df.dropna(); st.plotly_chart(px.scatter(clean, x=x, y=y, trendline="ols", title=f"{y} vs {x}"), width="stretch")
                 if len(clean) >= 3:
-                    r = stats.linregress(clean[x], clean[y]); st.caption(f"Linear regression: slope={r.slope:.5g}, intercept={r.intercept:.5g}, R²={r.rvalue**2:.5g}, p={r.pvalue:.5g}")
+                    r=stats.linregress(clean[x],clean[y]); st.caption(f"Linear regression: slope={r.slope:.5g}, intercept={r.intercept:.5g}, R²={r.rvalue**2:.5g}, p={r.pvalue:.5g}")
             else:
-                xcol, ycol = st.columns(2); x = xcol.selectbox("Sequence/time column", df.columns); y = ycol.selectbox("Response variable", numeric)
-                st.plotly_chart(px.line(df, x=x, y=y, markers=True, title=f"{y} across {x}"), width="stretch")
+                xcol, ycol = st.columns(2); x = xcol.selectbox("Sequence/time column", df.columns); y = ycol.selectbox("Response variable", numeric); plot_df=df[[x,y]].copy(); plot_df[y]=pd.to_numeric(plot_df[y],errors="coerce"); st.plotly_chart(px.line(plot_df.dropna(), x=x, y=y, markers=True, title=f"{y} across {x}"), width="stretch")
 
     with tabs[5]:
-        if len(numeric) < 2: st.info("At least two numeric columns are required for relationship analysis.")
+        if len(numeric) < 2: st.info("At least two measurement columns are required for relationship analysis.")
         else:
-            method = st.radio("Correlation method", ["Pearson", "Spearman"], horizontal=True)
-            corr = df[numeric].corr(method="pearson" if method == "Pearson" else "spearman")
-            st.plotly_chart(px.imshow(corr, text_auto=".2f", aspect="auto", title=f"{method} correlation matrix"), width="stretch")
-            st.dataframe(corr.round(4), width="stretch")
+            method = st.radio("Correlation method", ["Pearson", "Spearman"], horizontal=True); work=df[numeric].apply(pd.to_numeric,errors="coerce"); corr=work.corr(method="pearson" if method=="Pearson" else "spearman")
+            st.plotly_chart(px.imshow(corr, text_auto=".2f", aspect="auto", title=f"{method} correlation matrix"), width="stretch"); st.dataframe(corr.round(4), width="stretch")
 
     with tabs[6]:
         st.markdown("### Export")
         st.write("Download the original dataset or a selected working subset for your next analysis step.")
-        cols = st.multiselect("Columns to export", list(df.columns), default=list(df.columns))
-        export_df = df[cols] if cols else df
-        _download(export_df)
-        st.download_button("⬇️ Download Excel", _excel_bytes(export_df), "scimantra_data.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", width="stretch")
+        cols = st.multiselect("Columns to export", list(df.columns), default=list(df.columns)); export_df=df[cols] if cols else df
+        _download(export_df); st.download_button("⬇️ Download Excel", _excel_bytes(export_df), "scimantra_data.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", width="stretch")
         st.caption("SciMantra does not silently impute, delete or transform observations. Any cleaning decision should be documented and scientifically justified.")
 
 
 def _excel_bytes(df: pd.DataFrame) -> bytes:
-    buf = io.BytesIO()
-    with pd.ExcelWriter(buf, engine="openpyxl") as writer: df.to_excel(writer, index=False, sheet_name="Data")
+    buf=io.BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer: df.to_excel(writer,index=False,sheet_name="Data")
     return buf.getvalue()
