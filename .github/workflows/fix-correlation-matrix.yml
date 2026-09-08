@@ -1,0 +1,76 @@
+name: Fix correlation matrix
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix-correlation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch relationship analysis
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path("src/scimantra/data_ui.py")
+          text = p.read_text(encoding="utf-8")
+          old = '''    with tabs[6]:
+        if len(numeric)<2: st.info("At least two measurement columns are required for relationship analysis.")
+        else:
+            method=st.radio("Correlation method",["Pearson","Spearman"],horizontal=True); corr=df[numeric].apply(pd.to_numeric,errors="coerce").corr(method=method.lower()); st.plotly_chart(px.imshow(corr,text_auto=".2f",aspect="auto",title=f"{method} correlation matrix"),width="stretch"); st.dataframe(corr.round(4),width="stretch")
+'''
+          new = '''    with tabs[6]:
+        # Build a scientifically cleaner correlation set: remove Excel presentation
+        # columns, constants, and exact duplicate numeric series before correlation.
+        relationship_numeric = _relationship_columns(df, numeric)
+        if len(relationship_numeric) < 2:
+            st.info("At least two distinct, variable numeric measurements are required for relationship analysis.")
+        else:
+            st.markdown("### 🔗 Relationship analysis")
+            st.caption("Excel presentation columns (for example Unnamed:*), constant fields, and exact duplicate measurement columns are excluded before correlation. This prevents misleading matrices caused by repeated worksheet calculations.")
+            default_relationship = relationship_numeric[:min(10, len(relationship_numeric))]
+            selected_rel = st.multiselect("Variables for correlation", relationship_numeric, default=default_relationship, key="relationship_variables")
+            method = st.radio("Correlation method", ["Pearson", "Spearman"], horizontal=True, key="correlation_method")
+            if len(selected_rel) < 2:
+                st.info("Select at least two variables.")
+            else:
+                corr = df[selected_rel].apply(pd.to_numeric, errors="coerce").corr(method=method.lower(), min_periods=3)
+                fig = px.imshow(corr, text_auto=".2f", aspect="auto", zmin=-1, zmax=1, title=f"{method} correlation matrix")
+                fig.update_layout(height=max(520, 45 * len(selected_rel)), margin=dict(l=20, r=20, t=70, b=20))
+                st.plotly_chart(fig, width="stretch")
+                st.dataframe(corr.round(4), width="stretch")
+                st.caption(f"Showing {len(selected_rel)} distinct numeric variables. Correlations use pairwise complete observations with a minimum of 3 paired values; interpret small samples cautiously.")
+'''
+          helper = '''\n\ndef _relationship_columns(df: pd.DataFrame, numeric: list[str]) -> list[str]:\n    """Return useful numeric variables for correlation, excluding worksheet artifacts and duplicates."""\n    candidates=[]\n    for col in numeric:\n        name=str(col).strip().lower()\n        if not name or name.startswith("unnamed"):\n            continue\n        x=pd.to_numeric(df[col],errors="coerce")\n        if x.notna().sum()<3 or x.nunique(dropna=True)<2:\n            continue\n        candidates.append((col,x))\n    selected=[]\n    for col,x in candidates:\n        duplicate=False\n        for _,prev in selected:\n            a=x.reset_index(drop=True); b=prev.reset_index(drop=True)\n            paired=pd.concat([a,b],axis=1).dropna()\n            if len(paired)>=3 and np.allclose(paired.iloc[:,0].to_numpy(),paired.iloc[:,1].to_numpy(),rtol=1e-10,atol=1e-12):\n                duplicate=True\n                break\n        if not duplicate:\n            selected.append((col,x))\n    return [col for col,_ in selected]\n'''
+          if old not in text:
+              raise SystemExit("Expected correlation block not found; no changes made.")
+          if "def _relationship_columns" not in text:
+              marker = "\ndef _sheet_score(df: pd.DataFrame) -> tuple[int,int,int]:"
+              if marker not in text:
+                  raise SystemExit("Helper insertion point not found.")
+              text = text.replace(marker, helper + marker, 1)
+          text = text.replace(old, new, 1)
+          p.write_text(text, encoding="utf-8")
+
+      - name: Syntax check
+        run: python -m py_compile src/scimantra/data_ui.py
+
+      - name: Commit fix
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "No changes needed."
+          else
+            git add src/scimantra/data_ui.py
+            git commit -m "Clean correlation matrix variables"
+            git push
+          fi
