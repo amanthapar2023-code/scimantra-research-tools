@@ -22,31 +22,24 @@ st.markdown("""
 .tool-card{border:1px solid #dfe8ee;border-radius:16px;padding:1.05rem 1.1rem;background:#fff;min-height:132px;margin-bottom:.9rem;box-shadow:0 3px 12px rgba(20,55,80,.045)}
 .tool-card h3{margin:0 0 .35rem;color:#17344a;font-size:1.12rem}.tool-card p{margin:0;color:#536b7b;line-height:1.5}.pro-card{background:linear-gradient(135deg,#fffdf5,#fff);border-color:#ead9a5}
 .flow{border:1px solid #dfe8ee;border-radius:14px;padding:1rem;text-align:center;background:#fff;min-height:92px}.flow strong{display:block;color:#18364b}.flow span{font-size:.86rem;color:#637889}
-.badge{display:inline-block;padding:.25rem .55rem;border-radius:999px;background:#edf7ef;color:#28753d;font-size:.76rem;font-weight:700}
 footer{visibility:hidden}
 </style>
 """,unsafe_allow_html=True)
 
-# Sidebar navigation is grouped by workflow while keeping the existing routes stable.
 st.sidebar.markdown("# 🔬 SciMantra")
 st.sidebar.caption("Research • Analysis • Discovery")
 st.sidebar.divider()
 st.sidebar.markdown("**🏠 WORKSPACE**")
-section=st.sidebar.radio("",["🏠 Dashboard"],label_visibility="collapsed")
+section=st.sidebar.selectbox("Workspace",["🏠 Dashboard"],label_visibility="collapsed")
 st.sidebar.markdown("**🧪 CORE RESEARCH**")
-core=st.sidebar.radio("",["🧪 Laboratory Calculators","📊 Statistics","🌱 Environmental Biotechnology","📈 Data Analyzer","📊 Advanced Analysis","🔬 Research Tools","🌍 TEA & LCA"],label_visibility="collapsed")
+core=st.sidebar.selectbox("Core research",["— Select a core tool —","🧪 Laboratory Calculators","📊 Statistics","🌱 Environmental Biotechnology","📈 Data Analyzer","📊 Advanced Analysis","🔬 Research Tools","🌍 TEA & LCA"],label_visibility="collapsed")
 st.sidebar.markdown("**⭐ PRO RESEARCH SUITE**")
-pro=st.sidebar.radio("",["SciMantra Pro Workspace","AI Research Assistant","Statistical Copilot","Publication Figure Generator","Automated Research Report","Experimental Design Power Analysis"],label_visibility="collapsed")
+pro=st.sidebar.selectbox("Pro research",["— Select a Pro tool —","SciMantra Pro Workspace","AI Research Assistant","Statistical Copilot","Publication Figure Generator","Automated Research Report","Experimental Design Power Analysis"],label_visibility="collapsed")
 st.sidebar.markdown("**☁️ ACCOUNT & PROJECTS**")
-account=st.sidebar.radio("",["Research Project Manager","Accounts Project Hub","Subscriptions and Pro","Login and Cloud Account","Cloud Project Workspace","Account Dashboard","Admin Control Center"],label_visibility="collapsed")
-if section=="🏠 Dashboard":
-    pass
-elif core:
-    section=core
-elif pro:
-    section=pro
-else:
-    section=account
+account=st.sidebar.selectbox("Account & projects",["— Select an account tool —","Research Project Manager","Accounts Project Hub","Subscriptions and Pro","Login and Cloud Account","Cloud Project Workspace","Account Dashboard","Admin Control Center"],label_visibility="collapsed")
+if core != "— Select a core tool —": section=core
+elif pro != "— Select a Pro tool —": section=pro
+elif account != "— Select an account tool —": section=account
 
 st.markdown("""
 <div class="hero"><div class="eyebrow">Integrated research platform</div><h1>🔬 SciMantra</h1><p><b>Research. Analyze. Visualize. Publish.</b><br>Practical scientific tools for laboratory calculations, experimental data, environmental biotechnology and research reporting.</p></div>
@@ -146,7 +139,7 @@ elif section=="📊 Statistics":
         except Exception: st.warning("Enter equal-length arrays.")
     else:
         x=st.text_area("X values","1,2,3,4,5"); y=st.text_area("Y values","2,4,5,8,10")
-        try: xx=np.array([float(v) for v in x.split(",") if v.strip()]); yy=np.array([float(v) for v in y.split(",") if v.strip()]); r=stats.linregress(xx,yy); c=st.columns(4); c[0].metric("Slope",f"{r.slope:.6g}"); c[1].metric("Intercept",f"{r.intercept:.6g}"); c[2].metric("R²",f"{r.rvalue**2:.6g}"); c[3].metric("p-value",f"{r.pvalue:.6g}"); order=np.argsort(xx); st.plotly_chart(go.Figure([go.Scatter(x=xx,y=yy,mode="markers"),go.Scatter(x=xx[order],y=r.intercept+r.slope*xx[order],mode="lines")]),width="stretch")
+        try: xx=np.array([float(v) for v in x.split(",") if v.strip()]); yy=np.array([float(v) for v in y.split(",") if v.strip()]; r=stats.linregress(xx,yy); c=st.columns(4); c[0].metric("Slope",f"{r.slope:.6g}"); c[1].metric("Intercept",f"{r.intercept:.6g}"); c[2].metric("R²",f"{r.rvalue**2:.6g}"); c[3].metric("p-value",f"{r.pvalue:.6g}"); order=np.argsort(xx); st.plotly_chart(go.Figure([go.Scatter(x=xx,y=yy,mode="markers"),go.Scatter(x=xx[order],y=r.intercept+r.slope*xx[order],mode="lines")]),width="stretch")
         except Exception: st.warning("Enter equal-length arrays.")
 
 elif section=="🌱 Environmental Biotechnology":
