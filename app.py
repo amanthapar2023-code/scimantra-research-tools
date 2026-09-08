@@ -6,7 +6,6 @@ from scipy import stats
 from scipy.optimize import brentq
 import plotly.express as px
 import plotly.graph_objects as go
-
 from src.scimantra.laboratory import molarity_from_mass, dilution_stock_volume, solution_percentage, normality_from_molarity, cfu_per_ml, biomass_concentration, growth_rate, specific_growth_rate, bod_approx, cod_from_titration
 from src.scimantra.environmental import removal_efficiency, loading_rate, ebrt, h2s_removal
 
@@ -14,23 +13,20 @@ st.set_page_config(page_title="SciMantra Research Platform", page_icon="🔬", l
 st.markdown("""
 <style>
 .block-container{max-width:1450px;padding-top:1.2rem;padding-bottom:3rem}.hero{padding:2rem 2.2rem;border-radius:22px;background:linear-gradient(135deg,#e9f4ff 0%,#f8fbff 55%,#eefaf5 100%);border:1px solid #d8e8f5;margin-bottom:1.3rem;box-shadow:0 6px 24px rgba(20,55,80,.06)}
-.hero h1{margin:0;color:#0b2033;font-size:2.55rem;font-weight:750}.hero p{margin:.5rem 0 0;color:#486176;font-size:1.08rem}.eyebrow{font-size:.78rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#2574a8;margin-bottom:.35rem}.section-title{font-size:1.45rem;font-weight:700;color:#102b40;margin:1.1rem 0 .7rem}.tool-card{border:1px solid #dfe8ee;border-radius:16px;padding:1.05rem 1.1rem;background:#fff;min-height:132px;margin-bottom:.9rem;box-shadow:0 3px 12px rgba(20,55,80,.045)}.tool-card h3{margin:0 0 .35rem;color:#17344a;font-size:1.12rem}.tool-card p{margin:0;color:#536b7b;line-height:1.5}.pro-card{background:linear-gradient(135deg,#fffdf5,#fff);border-color:#ead9a5}.flow{border:1px solid #dfe8ee;border-radius:14px;padding:1rem;text-align:center;background:#fff;min-height:92px}.flow strong{display:block;color:#18364b}.flow span{font-size:.86rem;color:#637889}footer{visibility:hidden}
+.hero h1{margin:0;color:#0b2033;font-size:2.55rem;font-weight:750}.hero p{margin:.5rem 0 0;color:#486176;font-size:1.08rem}.eyebrow{font-size:.78rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#2574a8;margin-bottom:.35rem}.section-title{font-size:1.45rem;font-weight:700;color:#102b40;margin:1.1rem 0 .7rem}.tool-card{border:1px solid #dfe8ee;border-radius:16px;padding:1.05rem 1.1rem;background:#fff;min-height:132px;margin-bottom:.9rem;box-shadow:0 3px 12px rgba(20,55,80,.045)}
+.tool-card h3{margin:0 0 .35rem;color:#17344a;font-size:1.12rem}.tool-card p{margin:0;color:#536b7b;line-height:1.5}.pro-card{background:linear-gradient(135deg,#fffdf5,#fff);border-color:#ead9a5}
+.flow-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}.flow{border:1px solid #dfe8ee;border-radius:14px;padding:1rem;text-align:center;background:#fff;min-height:92px;display:flex;flex-direction:column;justify-content:center;box-sizing:border-box}.flow strong{display:block;color:#18364b}.flow span{font-size:.86rem;color:#637889}footer{visibility:hidden}
+@media(max-width:1100px){.flow-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:700px){.block-container{padding-left:.8rem;padding-right:.8rem}.hero{padding:1.35rem}.hero h1{font-size:2rem}.hero p{font-size:.98rem}.flow-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.flow{min-height:78px;padding:.7rem}.section-title{font-size:1.25rem}}
 </style>
 """,unsafe_allow_html=True)
 
-# Custom navigation replaces Streamlit's automatic pages menu.
 st.sidebar.markdown("# 🔬 SciMantra")
 st.sidebar.caption("Research • Analysis • Discovery")
 st.sidebar.divider()
-if "scimantra_page" not in st.session_state:
-    st.session_state.scimantra_page = "🏠 Dashboard"
-
-def nav(label, key):
-    if st.sidebar.button(label, key=key, width="stretch"):
-        st.session_state.scimantra_page = label
-
-st.sidebar.markdown("**🏠 WORKSPACE**")
-nav("🏠 Dashboard", "nav_dashboard")
+if "scimantra_page" not in st.session_state: st.session_state.scimantra_page="🏠 Dashboard"
+def nav(label,key):
+    if st.sidebar.button(label,key=key,width="stretch"): st.session_state.scimantra_page=label
+st.sidebar.markdown("**🏠 WORKSPACE**"); nav("🏠 Dashboard","nav_dashboard")
 st.sidebar.markdown("**🧪 CORE RESEARCH**")
 for label,key in [("🧪 Laboratory Calculators","nav_lab"),("📊 Statistics","nav_stats"),("🌱 Environmental Biotechnology","nav_env"),("📈 Data Analyzer","nav_data"),("📊 Advanced Analysis","nav_advanced"),("🔬 Research Tools","nav_research"),("🌍 TEA & LCA","nav_tea")]: nav(label,key)
 st.sidebar.markdown("**⭐ PRO RESEARCH SUITE**")
@@ -39,9 +35,7 @@ st.sidebar.markdown("**☁️ ACCOUNT & PROJECTS**")
 for label,key in [("Research Project Manager","nav_projects"),("Accounts Project Hub","nav_accounts"),("Subscriptions and Pro","nav_subscriptions"),("Login and Cloud Account","nav_login"),("Cloud Project Workspace","nav_cloud"),("Account Dashboard","nav_dashboard_account"),("Admin Control Center","nav_admin")]: nav(label,key)
 section=st.session_state.scimantra_page
 
-st.markdown("""
-<div class="hero"><div class="eyebrow">Integrated research platform</div><h1>🔬 SciMantra</h1><p><b>Research. Analyze. Visualize. Publish.</b><br>Practical scientific tools for laboratory calculations, experimental data, environmental biotechnology and research reporting.</p></div>
-""",unsafe_allow_html=True)
+st.markdown('<div class="hero"><div class="eyebrow">Integrated research platform</div><h1>🔬 SciMantra</h1><p><b>Research. Analyze. Visualize. Publish.</b><br>Practical scientific tools for laboratory calculations, experimental data, environmental biotechnology and research reporting.</p></div>',unsafe_allow_html=True)
 
 def download_df(df,filename="scimantra_results.csv"): st.download_button("⬇️ Download CSV",df.to_csv(index=False).encode("utf-8"),filename,"text/csv")
 def irr_roots(cashflows,max_rate=1000.0):
@@ -67,9 +61,6 @@ def payback(cf,discounted=False,rate=0.0):
         if cumulative>=0 and i>0: return float(i) if pv==0 else (i-1)+max(0,min(1,-prev/pv))
     return np.nan
 
-if section=="📊 Advanced Analysis":
-    import runpy; runpy.run_path("pages/7_Advanced_Experimental_Data_Analysis.py"); st.stop()
-
 if section=="🏠 Dashboard":
     st.markdown('<div class="section-title">Everything you need for the research workflow</div>',unsafe_allow_html=True)
     cols=st.columns(3)
@@ -77,17 +68,13 @@ if section=="🏠 Dashboard":
     for i,(title,desc) in enumerate(cards):
         with cols[i%3]: st.markdown(f'<div class="tool-card {"pro-card" if "Pro" in title else ""}"><h3>{title}</h3><p>{desc}</p></div>',unsafe_allow_html=True)
     st.markdown('<div class="section-title">🔄 Research workflow</div>',unsafe_allow_html=True)
-    flow=st.columns(6)
-    for col,title,desc in zip(flow,["Upload","Analyze","Statistics","Visualize","Report","Publish"],["Dataset","Quality & trends","Evidence","Figures","Manuscript","Research-ready output"]):
-        with col: st.markdown(f'<div class="flow"><strong>{title}</strong><span>{desc}</span></div>',unsafe_allow_html=True)
+    flow_titles=[("Upload","Dataset"),("Analyze","Quality & trends"),("Statistics","Evidence"),("Visualize","Figures"),("Report","Manuscript"),("Publish","Research-ready output")]
+    st.markdown('<div class="flow-grid">'+''.join(f'<div class="flow"><strong>{a}</strong><span>{b}</span></div>' for a,b in flow_titles)+'</div>',unsafe_allow_html=True)
     st.markdown("<br>",unsafe_allow_html=True)
-    c1,c2=st.columns([2,1])
-    with c1: st.success("**Start with your data:** use Data Analyzer for quick exploration or Advanced Analysis for replicate-aware research workflows.")
-    with c2: st.info("⭐ **Pro:** unlock the full analysis → figure → report workflow.")
+    c1,c2=st.columns([2,1]); c1.success("**Start with your data:** use Data Analyzer for quick exploration or Advanced Analysis for replicate-aware research workflows."); c2.info("⭐ **Pro:** unlock the full analysis → figure → report workflow.")
 
 elif section=="🧪 Laboratory Calculators":
-    from src.scimantra.lab_ui import render as render_lab_ui
-    render_lab_ui()
+    from src.scimantra.lab_ui import render as render_lab_ui; render_lab_ui()
 
 elif section=="📊 Statistics":
     tool=st.selectbox("Statistical tool",["Descriptive statistics","t-Test","One-way ANOVA","Correlation","Linear regression"])
@@ -111,9 +98,7 @@ elif section=="📊 Statistics":
     else:
         x=st.text_area("X values","1,2,3,4,5"); y=st.text_area("Y values","2,4,5,8,10")
         try:
-            xx=np.array([float(v) for v in x.split(",") if v.strip()]); yy=np.array([float(v) for v in y.split(",") if v.strip()]); r=stats.linregress(xx,yy)
-            c=st.columns(4); c[0].metric("Slope",f"{r.slope:.6g}"); c[1].metric("Intercept",f"{r.intercept:.6g}"); c[2].metric("R²",f"{r.rvalue**2:.6g}"); c[3].metric("p-value",f"{r.pvalue:.6g}")
-            order=np.argsort(xx); st.plotly_chart(go.Figure([go.Scatter(x=xx,y=yy,mode="markers"),go.Scatter(x=xx[order],y=r.intercept+r.slope*xx[order],mode="lines")]),width="stretch")
+            xx=np.array([float(v) for v in x.split(",") if v.strip()]); yy=np.array([float(v) for v in y.split(",") if v.strip()]); r=stats.linregress(xx,yy); c=st.columns(4); c[0].metric("Slope",f"{r.slope:.6g}"); c[1].metric("Intercept",f"{r.intercept:.6g}"); c[2].metric("R²",f"{r.rvalue**2:.6g}"); c[3].metric("p-value",f"{r.pvalue:.6g}"); order=np.argsort(xx); st.plotly_chart(go.Figure([go.Scatter(x=xx,y=yy,mode="markers"),go.Scatter(x=xx[order],y=r.intercept+r.slope*xx[order],mode="lines")]),width="stretch")
         except Exception: st.warning("Enter equal-length arrays.")
 
 elif section=="🌱 Environmental Biotechnology":
@@ -136,12 +121,7 @@ elif section=="🌱 Environmental Biotechnology":
         except ValueError as exc: st.error(str(exc))
 
 elif section=="📈 Data Analyzer":
-    st.subheader("Data Analyzer"); uploaded=st.file_uploader("Upload Excel/CSV",type=["xlsx","csv"])
-    if uploaded:
-        df=pd.read_csv(uploaded) if uploaded.name.lower().endswith(".csv") else pd.read_excel(uploaded); st.dataframe(df,width="stretch"); numeric=df.select_dtypes(include=np.number).columns.tolist()
-        if numeric:
-            col=st.selectbox("Variable",numeric); st.dataframe(df[col].describe().to_frame().T,width="stretch"); st.plotly_chart(px.histogram(df,x=col,title=f"Distribution: {col}"),width="stretch")
-    else: st.info("Upload an Excel or CSV file to begin.")
+    from src.scimantra.data_ui import render as render_data_ui; render_data_ui()
 
 elif section=="🔬 Research Tools":
     st.subheader("Research Utilities"); tool=st.selectbox("Tool",["Standard curve","Experimental design checklist","Manuscript checklist"])
@@ -156,6 +136,9 @@ elif section=="🔬 Research Tools":
 
 elif section=="🌍 TEA & LCA":
     st.subheader("Techno-Economic Analysis & Life-Cycle Assessment"); st.caption("Screening-level calculations for research planning; document assumptions and verify with project-specific data."); st.write("Use the existing TEA & LCA tools below to model NPV, IRR, payback, inventory and CO₂e intensity.")
+
+elif section=="📊 Advanced Analysis":
+    import runpy; runpy.run_path("pages/7_Advanced_Experimental_Data_Analysis.py"); st.stop()
 
 elif section in {"SciMantra Pro Workspace","AI Research Assistant","Statistical Copilot","Publication Figure Generator","Automated Research Report","Experimental Design Power Analysis","Research Project Manager","Accounts Project Hub","Subscriptions and Pro","Login and Cloud Account","Cloud Project Workspace","Account Dashboard","Admin Control Center"}:
     import runpy
