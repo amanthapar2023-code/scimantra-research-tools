@@ -74,7 +74,8 @@ if section=="🏠 Dashboard":
     c1,c2=st.columns([2,1]); c1.success("**Start with your data:** use Data Analyzer for quick exploration or Advanced Analysis for replicate-aware research workflows."); c2.info("⭐ **Pro:** unlock the full analysis → figure → report workflow.")
 
 elif section=="🧪 Laboratory Calculators":
-    from src.scimantra.lab_ui import render as render_lab_ui; render_lab_ui()
+    from src.scimantra.lab_ui import render as render_lab_ui
+    render_lab_ui()
 
 elif section=="📊 Statistics":
     tool=st.selectbox("Statistical tool",["Descriptive statistics","t-Test","One-way ANOVA","Correlation","Linear regression"])
