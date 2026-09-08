@@ -1,0 +1,75 @@
+name: Connect H2S publication workflow navigation
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  connect:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch main navigation and routing
+        shell: python
+        run: |
+          from pathlib import Path
+
+          p = Path("app.py")
+          text = p.read_text(encoding="utf-8")
+
+          old_nav = '("🧪 H₂S Publication Dashboard","nav_h2s_publication")]'
+          new_nav = '''("🧪 H₂S Publication Dashboard","nav_h2s_publication"),("📝 H₂S Manuscript Studio","nav_h2s_studio"),("📄 H₂S Complete Manuscript","nav_h2s_complete"),("🧾 H₂S Evidence Passport","nav_h2s_passport"),("📦 H₂S Submission Packager","nav_h2s_submission"),("🗂️ H₂S Study Packager","nav_h2s_packager")]'''
+          if old_nav in text:
+              text = text.replace(old_nav, new_nav, 1)
+
+          anchor = '''elif section=="H₂S Manuscript Studio":
+    import runpy; runpy.run_path("pages/23_H2S_Evidence_to_Manuscript_Studio.py")'''
+          routes = '''elif section=="📝 H₂S Manuscript Studio":
+    import runpy; runpy.run_path("pages/23_H2S_Evidence_to_Manuscript_Studio.py")
+
+elif section=="📄 H₂S Complete Manuscript":
+    import runpy; runpy.run_path("pages/24_H2S_Complete_Manuscript_Builder.py")
+
+elif section=="🧾 H₂S Evidence Passport":
+    import runpy; runpy.run_path("pages/25_H2S_Reproducibility_Evidence_Passport.py")
+
+elif section=="📦 H₂S Submission Packager":
+    import runpy; runpy.run_path("pages/26_H2S_Journal_Submission_Packager.py")
+
+elif section=="🗂️ H₂S Study Packager":
+    import runpy; runpy.run_path("pages/27_H2S_Study_Packager.py")'''
+          if anchor in text:
+              text = text.replace(anchor, routes, 1)
+          elif 'elif section=="📝 H₂S Manuscript Studio":' not in text:
+              marker = 'elif section=="🧪 H₂S Publication Dashboard":'
+              if marker in text:
+                  text = text.replace(marker, routes + "\n\n" + marker, 1)
+
+          p.write_text(text, encoding="utf-8")
+
+      - name: Syntax check
+        shell: bash
+        run: |
+          python -m py_compile app.py
+          python -m py_compile pages/23_H2S_Evidence_to_Manuscript_Studio.py
+          python -m py_compile pages/24_H2S_Complete_Manuscript_Builder.py
+          python -m py_compile pages/25_H2S_Reproducibility_Evidence_Passport.py
+          python -m py_compile pages/26_H2S_Journal_Submission_Packager.py
+          python -m py_compile pages/27_H2S_Study_Packager.py
+
+      - name: Commit integration changes
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No navigation changes needed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app.py
+          git commit -m "Connect H2S manuscript and submission suite"
+          git push
