@@ -37,5 +37,5 @@ for gap in gap_candidates(st.session_state.em_records): st.warning(gap)
 
 st.subheader("Export")
 df=pd.DataFrame(st.session_state.em_records)
-st.download_button("⬇️ Download full literature matrix", df.to_csv(index=False).encode(), "scimantra_literature_evidence_matrix.csv", "text/csv", use_container_width=True)
+st.download_button("⬇️ Download full literature matrix", df.to_csv(index=False).encode(), "scimantra_literature_evidence_matrix.csv", "text/csv", width="stretch")
 st.info("Rule: an empty cell is a missing evidence field, not an invitation for AI to guess. Source-anchored entries should point to a paper section, page, table, figure, DOI, or other verifiable location.")
