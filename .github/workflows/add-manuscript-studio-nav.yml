@@ -1,0 +1,37 @@
+name: Add manuscript studio navigation
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-navigation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch app navigation
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path("app.py")
+          text = p.read_text(encoding="utf-8")
+          old = 'for label,key in [("SciMantra Pro Workspace","nav_pro_workspace"),("AI Research Assistant","nav_ai"),("Statistical Copilot","nav_copilot"),("Publication Figure Generator","nav_figures"),("Automated Research Report","nav_report"),("Experimental Design Power Analysis","nav_power")]: nav(label,key)'
+          new = 'for label,key in [("SciMantra Pro Workspace","nav_pro_workspace"),("AI Research Assistant","nav_ai"),("Statistical Copilot","nav_copilot"),("Publication Figure Generator","nav_figures"),("Automated Research Report","nav_report"),("Experimental Design Power Analysis","nav_power"),("H₂S Manuscript Studio","nav_h2s_studio")]: nav(label,key)'
+          if old in text and 'nav_h2s_studio' not in text:
+              text = text.replace(old,new,1)
+          marker = 'elif section=="📈 Data Analyzer":\n    from src.scimantra.data_ui import render as render_data_ui; render_data_ui()'
+          addition = marker + '\n\nelif section=="H₂S Manuscript Studio":\n    import runpy; runpy.run_path("pages/23_H2S_Evidence_to_Manuscript_Studio.py")'
+          if marker in text and 'section=="H₂S Manuscript Studio"' not in text:
+              text = text.replace(marker, addition, 1)
+          p.write_text(text, encoding="utf-8")
+      - name: Syntax check
+        run: python -m py_compile app.py pages/23_H2S_Evidence_to_Manuscript_Studio.py
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then echo "No changes needed."; else git add app.py; git commit -m "Add H2S manuscript studio to navigation"; git push; fi
