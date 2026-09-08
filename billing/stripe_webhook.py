@@ -1,16 +1,13 @@
 """Minimal Stripe webhook service.
 
-Deploy this separately from Streamlit (Cloud Run, Render, Railway, etc.).
-Required environment variables:
+Deploy separately from Streamlit. Required environment variables:
 STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, SUPABASE_URL,
 SUPABASE_SERVICE_ROLE_KEY.
-
-The service role key must NEVER be exposed to Streamlit users or committed.
 """
 from __future__ import annotations
 
-import json
 import os
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import stripe
@@ -29,10 +26,7 @@ def _subscription_record(subscription, event_type: str):
     items = subscription.get("items", {}).get("data", [])
     price_id = items[0].get("price", {}).get("id", "") if items else ""
     period_end = subscription.get("current_period_end")
-    period_end_iso = None
-    if period_end:
-        from datetime import datetime, timezone
-        period_end_iso = datetime.fromtimestamp(period_end, tz=timezone.utc).isoformat()
+    period_end_iso = datetime.fromtimestamp(period_end, tz=timezone.utc).isoformat() if period_end else None
     status = subscription.get("status", "active")
     plan = "pro" if status in {"active", "trialing"} else "free"
     payload = {
@@ -40,13 +34,11 @@ def _subscription_record(subscription, event_type: str):
         "plan": plan,
         "status": status,
         "provider": "stripe",
-        "customer_id": subscription.get("customer", ""),
-        "subscription_id": subscription.get("id", ""),
+        "customer_id": str(subscription.get("customer", "")),
+        "subscription_id": str(subscription.get("id", "")),
         "current_period_end": period_end_iso,
-        "updated_at": "now()",
-        "metadata": {"price_id": price_id, "event_type": event_type},
+        "updated_at": datetime.now(timezone.utc).isoformat(),
     }
-    # Upsert is idempotent for repeated Stripe deliveries.
     supabase.table("subscriptions").upsert(payload, on_conflict="user_id").execute()
 
 
@@ -65,10 +57,10 @@ class Handler(BaseHTTPRequestHandler):
                 subscription_id = obj.get("subscription")
                 if subscription_id:
                     sub = stripe.Subscription.retrieve(subscription_id)
-                    # Carry the checkout metadata forward if Stripe did not copy it.
                     metadata = obj.get("metadata") or {}
-                    if metadata.get("supabase_user_id") and not sub.get("metadata", {}).get("supabase_user_id"):
-                        sub = stripe.Subscription.modify(subscription_id, metadata={"supabase_user_id": metadata["supabase_user_id"]})
+                    user_id = metadata.get("supabase_user_id") or obj.get("client_reference_id")
+                    if user_id and not sub.get("metadata", {}).get("supabase_user_id"):
+                        sub = stripe.Subscription.modify(subscription_id, metadata={"supabase_user_id": user_id})
                     _subscription_record(sub, event_type)
             self.send_response(200)
             self.end_headers()
