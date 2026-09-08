@@ -124,6 +124,9 @@ elif section=="🌱 Environmental Biotechnology":
 elif section=="📈 Data Analyzer":
     from src.scimantra.data_ui import render as render_data_ui; render_data_ui()
 
+elif section=="H₂S Manuscript Studio":
+    import runpy; runpy.run_path("pages/23_H2S_Evidence_to_Manuscript_Studio.py")
+
 elif section=="🧪 H₂S Publication Dashboard":
     import runpy
     runpy.run_path("pages/22_H2S_Publication_Results_Dashboard.py")
