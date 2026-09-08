@@ -1,0 +1,37 @@
+name: Integrate Laboratory UI
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Replace legacy laboratory block
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app.py')
+          text = p.read_text(encoding='utf-8')
+          start = text.find('elif section=="🧪 Laboratory Calculators":')
+          end = text.find('\nelif section=="📊 Statistics":', start)
+          if start < 0 or end < 0:
+              raise SystemExit('laboratory block boundaries not found')
+          replacement = '''elif section=="🧪 Laboratory Calculators":\n    from src.scimantra.lab_ui import render as render_lab_ui\n    render_lab_ui()\n'''
+          p.write_text(text[:start] + replacement + text[end:], encoding='utf-8')
+          PY
+      - name: Syntax check
+        run: python -m py_compile app.py src/scimantra/lab_ui.py
+      - name: Commit integration
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app.py
+          git commit -m "Integrate polished laboratory calculator UI"
+          git push
