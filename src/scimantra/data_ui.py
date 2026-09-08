@@ -45,8 +45,9 @@ def _measurement_columns(df: pd.DataFrame) -> list[str]:
 
 
 
+
 def _relationship_columns(df: pd.DataFrame, numeric: list[str]) -> list[str]:
-    """Return useful numeric variables for correlation, excluding worksheet artifacts and duplicates."""
+    """Return useful numeric variables for correlation, excluding worksheet artifacts and repeated calculations."""
     candidates = []
     for col in numeric:
         name = str(col).strip().lower()
@@ -58,7 +59,15 @@ def _relationship_columns(df: pd.DataFrame, numeric: list[str]) -> list[str]:
         candidates.append((col, x))
 
     selected = []
+    seen_bases = set()
     for col, x in candidates:
+        # Excel commonly creates "Column", "Column.1", "Column.2" when the
+        # same calculation is copied across worksheets. Keep the first useful
+        # representative, while still checking for exact duplicate series.
+        base = re.sub(r"\.\d+$", "", str(col)).strip().lower()
+        if base in seen_bases:
+            continue
+
         duplicate = False
         for _, prev in selected:
             paired = pd.concat([x.reset_index(drop=True), prev.reset_index(drop=True)], axis=1).dropna()
@@ -72,6 +81,7 @@ def _relationship_columns(df: pd.DataFrame, numeric: list[str]) -> list[str]:
                 break
         if not duplicate:
             selected.append((col, x))
+            seen_bases.add(base)
     return [col for col, _ in selected]
 
 def _sheet_score(df: pd.DataFrame) -> tuple[int,int,int]:
@@ -259,7 +269,7 @@ def render() -> None:
             st.info("At least two distinct, variable numeric measurements are required for relationship analysis.")
         else:
             st.markdown("### 🔗 Relationship analysis")
-            st.caption("Excel presentation columns (for example Unnamed:*), constant fields, and exact duplicate measurement columns are excluded before correlation. This prevents misleading matrices caused by repeated worksheet calculations.")
+            st.caption("SciMantra excludes Unnamed:* Excel artifacts, constants, repeated .1/.2 worksheet calculation columns, and exact duplicate series before correlation.")
             default_relationship = relationship_numeric[:min(10, len(relationship_numeric))]
             selected_rel = st.multiselect("Variables for correlation", relationship_numeric, default=default_relationship, key="relationship_variables")
             method = st.radio("Correlation method", ["Pearson", "Spearman"], horizontal=True, key="correlation_method")
@@ -271,6 +281,6 @@ def render() -> None:
                 fig.update_layout(height=max(520, 45 * len(selected_rel)), margin=dict(l=20, r=20, t=70, b=20))
                 st.plotly_chart(fig, width="stretch")
                 st.dataframe(corr.round(4), width="stretch")
-                st.caption(f"Showing {len(selected_rel)} distinct numeric variables. Correlations use pairwise complete observations with a minimum of 3 paired values; interpret small samples cautiously.")
+                st.caption(f"Showing {len(selected_rel)} distinct analysis variables. Correlations use pairwise complete observations with a minimum of 3 paired values; interpret small samples cautiously.")
     with tabs[7]:
         st.markdown("### Export"); st.write("Download the original dataset or a selected working subset for your next analysis step."); cols=st.multiselect("Columns to export",list(df.columns),default=list(df.columns)); export_df=df[cols] if cols else df; _download(export_df); st.download_button("⬇️ Download Excel",_excel_bytes(export_df),"scimantra_data.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",width="stretch"); st.caption("SciMantra does not silently impute, delete or transform observations. Any cleaning decision should be documented and scientifically justified.")
