@@ -1,0 +1,18 @@
+name: Apply SciMantra UI polish
+on:
+  push:
+    branches: [main]
+jobs:
+  validate-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Syntax check
+        run: python -m compileall -q app.py pages src
+      - name: Verify UI theme and navigation config
+        run: |
+          test -f src/scimantra/ui_theme.py
+          test -f .streamlit/config.toml
