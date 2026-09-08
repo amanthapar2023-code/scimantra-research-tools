@@ -18,20 +18,26 @@ st.markdown("""
 </style>
 """,unsafe_allow_html=True)
 
+# Custom navigation replaces Streamlit's automatic pages menu.
 st.sidebar.markdown("# 🔬 SciMantra")
 st.sidebar.caption("Research • Analysis • Discovery")
 st.sidebar.divider()
+if "scimantra_page" not in st.session_state:
+    st.session_state.scimantra_page = "🏠 Dashboard"
+
+def nav(label, key):
+    if st.sidebar.button(label, key=key, width="stretch"):
+        st.session_state.scimantra_page = label
+
 st.sidebar.markdown("**🏠 WORKSPACE**")
-section=st.sidebar.selectbox("Workspace",["🏠 Dashboard"],label_visibility="collapsed")
+nav("🏠 Dashboard", "nav_dashboard")
 st.sidebar.markdown("**🧪 CORE RESEARCH**")
-core=st.sidebar.selectbox("Core research",["— Select a core tool —","🧪 Laboratory Calculators","📊 Statistics","🌱 Environmental Biotechnology","📈 Data Analyzer","📊 Advanced Analysis","🔬 Research Tools","🌍 TEA & LCA"],label_visibility="collapsed")
+for label,key in [("🧪 Laboratory Calculators","nav_lab"),("📊 Statistics","nav_stats"),("🌱 Environmental Biotechnology","nav_env"),("📈 Data Analyzer","nav_data"),("📊 Advanced Analysis","nav_advanced"),("🔬 Research Tools","nav_research"),("🌍 TEA & LCA","nav_tea")]: nav(label,key)
 st.sidebar.markdown("**⭐ PRO RESEARCH SUITE**")
-pro=st.sidebar.selectbox("Pro research",["— Select a Pro tool —","SciMantra Pro Workspace","AI Research Assistant","Statistical Copilot","Publication Figure Generator","Automated Research Report","Experimental Design Power Analysis"],label_visibility="collapsed")
+for label,key in [("SciMantra Pro Workspace","nav_pro_workspace"),("AI Research Assistant","nav_ai"),("Statistical Copilot","nav_copilot"),("Publication Figure Generator","nav_figures"),("Automated Research Report","nav_report"),("Experimental Design Power Analysis","nav_power")]: nav(label,key)
 st.sidebar.markdown("**☁️ ACCOUNT & PROJECTS**")
-account=st.sidebar.selectbox("Account & projects",["— Select an account tool —","Research Project Manager","Accounts Project Hub","Subscriptions and Pro","Login and Cloud Account","Cloud Project Workspace","Account Dashboard","Admin Control Center"],label_visibility="collapsed")
-if core != "— Select a core tool —": section=core
-elif pro != "— Select a Pro tool —": section=pro
-elif account != "— Select an account tool —": section=account
+for label,key in [("Research Project Manager","nav_projects"),("Accounts Project Hub","nav_accounts"),("Subscriptions and Pro","nav_subscriptions"),("Login and Cloud Account","nav_login"),("Cloud Project Workspace","nav_cloud"),("Account Dashboard","nav_dashboard_account"),("Admin Control Center","nav_admin")]: nav(label,key)
+section=st.session_state.scimantra_page
 
 st.markdown("""
 <div class="hero"><div class="eyebrow">Integrated research platform</div><h1>🔬 SciMantra</h1><p><b>Research. Analyze. Visualize. Publish.</b><br>Practical scientific tools for laboratory calculations, experimental data, environmental biotechnology and research reporting.</p></div>
@@ -129,7 +135,7 @@ elif section=="📊 Statistics":
         x=st.text_area("X values","1,2,3,4,5"); y=st.text_area("Y values","2,4,5,8,10")
         try:
             xx=np.array([float(v) for v in x.split(",") if v.strip()]); yy=np.array([float(v) for v in y.split(",") if v.strip()]); r=stats.linregress(xx,yy)
-            c=st.columns(4); c[0].metric("Slope",f"{r.slope:.6g}"); c[1].metric("Intercept",f"{r.intercept:.6g}"); c[2].metric("R²",f"{r.rvalue**2:.6g}"); c[3].metric("p-value",f"{r.pvalue:.6g}")
+            c=st.columns(4); c[0].metric("Slope",f"{r.slope:.6g}"); c[1].metric("Intercept",f"{r.intercept:.6g}"); c[2].metric("R²",f"{r.rvalue**2:.6g}"); c[3].metric("p-value",f"{r.pvalue:.6g")
             order=np.argsort(xx); st.plotly_chart(go.Figure([go.Scatter(x=xx,y=yy,mode="markers"),go.Scatter(x=xx[order],y=r.intercept+r.slope*xx[order],mode="lines")]),width="stretch")
         except Exception: st.warning("Enter equal-length arrays.")
 
