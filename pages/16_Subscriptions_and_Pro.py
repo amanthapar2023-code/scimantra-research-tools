@@ -36,22 +36,51 @@ for action, data in usage_snapshot(st.session_state).items():
 st.divider()
 if not subscription.is_pro:
     st.subheader("⭐ Upgrade to Pro")
-    if checkout_configured(st.secrets):
+    try:
+        from src.scimantra.billing import configured as stripe_configured, create_checkout_session
+        stripe_ready = stripe_configured(st.secrets)
+    except Exception:
+        stripe_ready = False
+
+    if stripe_ready:
+        if st.button("💳 Subscribe to Pro", type="primary"):
+            try:
+                user = st.session_state.get("user") or st.session_state.get("supabase_user")
+                user_id = str(getattr(user, "id", "")) if user else ""
+                email = str(getattr(user, "email", "")) if user else ""
+                if not user_id:
+                    st.error("Please sign in to your SciMantra cloud account before subscribing.")
+                else:
+                    url = create_checkout_session(st.secrets, user_id, email)
+                    st.link_button("Continue to secure checkout", url, type="primary")
+            except Exception as exc:
+                st.error(f"Could not start checkout: {exc}")
+    elif checkout_configured(st.secrets):
         st.link_button(f"Continue to {st.secrets['BILLING_PROVIDER']} checkout", st.secrets["BILLING_CHECKOUT_URL"], type="primary")
     else:
-        st.warning("Real payment checkout is not configured. No payment is requested by this page.")
-        st.caption("Add BILLING_PROVIDER and BILLING_CHECKOUT_URL only after your external checkout and backend webhook are ready.")
+        st.warning("Real payment checkout is not configured yet. No payment is requested by this page.")
+        st.caption("Configure STRIPE_SECRET_KEY, STRIPE_PRICE_ID and APP_URL after creating your Stripe product/price.")
+
     if st.button("🧪 Preview Pro access", help="Development preview only; this does not create a paid subscription."):
         set_plan(st.session_state, "pro", status="trialing", provider="preview")
         st.rerun()
 else:
     st.success("Pro entitlements are active for this session.")
+    customer_id = subscription.customer_id
+    if customer_id:
+        try:
+            from src.scimantra.billing import create_portal_session
+            if st.button("⚙️ Manage subscription"):
+                url = create_portal_session(st.secrets, customer_id)
+                st.link_button("Open Stripe customer portal", url)
+        except Exception:
+            pass
     if st.button("Return to Free preview"):
         set_plan(st.session_state, "free", status="active", provider="none")
         st.rerun()
 
 st.divider()
 st.subheader("🧩 Production billing flow")
-for i, step in enumerate(["Authenticated researcher starts checkout.", "Billing provider processes payment.", "Provider sends a signed webhook to a trusted backend.", "Backend verifies the signature and updates subscriptions.", "App reads verified entitlement and enforces access.", "Renewal, cancellation, failure and expiry events update the same record."], 1):
+for i, step in enumerate(["Authenticated researcher starts checkout.", "Stripe processes payment details on its hosted checkout.", "Stripe sends a signed event to the trusted webhook service.", "Webhook verifies the signature and updates the subscription record.", "SciMantra reads verified entitlement and enforces Pro access.", "Renewal, cancellation, failed payment and expiry events update the same record."], 1):
     st.write(f"**{i}.** {step}")
-st.warning("Never store card numbers, CVV, passwords, provider signing secrets or service-role keys in Streamlit session state or source code. Production quota enforcement should be server-side.")
+st.warning("Never store card numbers, CVV, passwords, Stripe signing secrets or Supabase service-role keys in session state or source code. Production quota enforcement should be server-side.")
