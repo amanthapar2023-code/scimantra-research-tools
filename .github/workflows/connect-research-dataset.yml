@@ -3,11 +3,6 @@ name: Connect research dataset workflow
 on:
   push:
     branches: [main]
-    paths:
-      - 'src/scimantra/data_ui.py'
-      - 'pages/20_H2S_Bioreactor_Research_Suite.py'
-      - 'pages/21_H2S_Optimization_and_Publication.py'
-      - 'src/scimantra/research_session.py'
   workflow_dispatch:
 
 permissions:
@@ -25,27 +20,19 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-
           p = Path('src/scimantra/data_ui.py')
           s = p.read_text(encoding='utf-8')
-
           if 'from src.scimantra.research_session import store_dataframe' not in s:
               s = s.replace('from scipy import stats\n', 'from scipy import stats\nfrom src.scimantra.research_session import store_dataframe\n')
-
           marker = '    if df.empty: st.warning("The selected worksheet contains no rows."); return\n'
-          insertion = marker + '    store_dataframe(df, uploaded.name, sheet_name)\n'
           if 'store_dataframe(df, uploaded.name, sheet_name)' not in s:
-              if marker not in s:
-                  raise SystemExit('Data Analyzer insertion marker not found')
-              s = s.replace(marker, insertion, 1)
-
+              if marker not in s: raise SystemExit('Data Analyzer insertion marker not found')
+              s = s.replace(marker, marker + '    store_dataframe(df, uploaded.name, sheet_name)\n', 1)
           nav_marker = '    tabs=st.tabs(["🔎 Data","🧹 Quality","📊 Statistics","🧬 Replicates","🌱 H₂S Research","📈 Visualize","🔗 Relationships","⬇️ Export"])\n'
-          nav_insert = '''    tabs=st.tabs(["🔎 Data","🧹 Quality","📊 Statistics","🧬 Replicates","🌱 H₂S Research","📈 Visualize","🔗 Relationships","⬇️ Export"])\n    if any(k in str(c).lower().replace("₂","2") for c in df.columns for k in ["h2s","hydrogen sulfide","sulfide","sulphide"]):\n        st.markdown("### 🧪 Continue the H₂S research workflow")\n        st.caption("This dataset is now available across the H₂S research pages for this browser session — no second upload is required.")\n        b1, b2 = st.columns(2)\n        if b1.button("Open H₂S Bioreactor Research Suite", width="stretch", key="open_h2s_suite"):\n            st.switch_page("pages/20_H2S_Bioreactor_Research_Suite.py")\n        if b2.button("Open H₂S Optimization & Publication", width="stretch", key="open_h2s_opt"):\n            st.switch_page("pages/21_H2S_Optimization_and_Publication.py")\n'''
+          nav_insert = '''    tabs=st.tabs(["🔎 Data","🧹 Quality","📊 Statistics","🧬 Replicates","🌱 H₂S Research","📈 Visualize","🔗 Relationships","⬇️ Export"])\n    if any(k in str(c).lower().replace("₂","2") for c in df.columns for k in ["h2s","hydrogen sulfide","sulfide","sulphide"]):\n        st.markdown("### 🧪 Continue the H₂S research workflow")\n        st.caption("This dataset is available across the H₂S research pages for this browser session — no second upload is required.")\n        b1, b2 = st.columns(2)\n        if b1.button("Open H₂S Bioreactor Research Suite", width="stretch", key="open_h2s_suite"):\n            st.switch_page("pages/20_H2S_Bioreactor_Research_Suite.py")\n        if b2.button("Open H₂S Optimization & Publication", width="stretch", key="open_h2s_opt"):\n            st.switch_page("pages/21_H2S_Optimization_and_Publication.py")\n'''
           if 'Continue the H₂S research workflow' not in s:
-              if nav_marker not in s:
-                  raise SystemExit('Data Analyzer tabs marker not found')
+              if nav_marker not in s: raise SystemExit('Data Analyzer tabs marker not found')
               s = s.replace(nav_marker, nav_insert, 1)
-
           p.write_text(s, encoding='utf-8')
           PY
 
@@ -53,41 +40,27 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-
-          for filename, label in [
-              ('pages/20_H2S_Bioreactor_Research_Suite.py', 'Use current Data Analyzer dataset'),
-              ('pages/21_H2S_Optimization_and_Publication.py', 'Use current Data Analyzer dataset'),
-          ]:
-              p = Path(filename)
-              s = p.read_text(encoding='utf-8')
+          for filename in ['pages/20_H2S_Bioreactor_Research_Suite.py','pages/21_H2S_Optimization_and_Publication.py']:
+              p=Path(filename); s=p.read_text(encoding='utf-8')
               if 'from src.scimantra.research_session import get_dataframe, metadata' not in s:
-                  s = s.replace('import streamlit as st\n', 'import streamlit as st\nfrom src.scimantra.research_session import get_dataframe, metadata\n')
-
-              old20 = 'uploaded = st.file_uploader("Upload H₂S / reactor dataset", type=["xlsx", "csv"], help="Use a workbook containing experimental observations. Original data are not changed.")'
-              old21 = 'file = st.file_uploader("Upload H₂S experimental dataset", type=["xlsx", "csv"])'
+                  s=s.replace('import streamlit as st\n','import streamlit as st\nfrom src.scimantra.research_session import get_dataframe, metadata\n')
               if filename.endswith('20_H2S_Bioreactor_Research_Suite.py'):
-                  new = '''current_df = get_dataframe()\nuse_current = False\nif current_df is not None:\n    meta = metadata()\n    st.success(f"Current Data Analyzer dataset available: **{meta['filename']}**" + (f" • worksheet: **{meta['sheet']}**" if meta.get('sheet') else ""))\n    use_current = st.checkbox("Use current Data Analyzer dataset", value=True, key="h2s_use_current_dataset")\nif use_current:\n    uploaded = io.BytesIO(current_df.to_csv(index=False).encode("utf-8"))\n    uploaded.name = "current_data.csv"\nelse:\n    uploaded = st.file_uploader("Upload H₂S / reactor dataset", type=["xlsx", "csv"], help="Use a workbook containing experimental observations. Original data are not changed.")'''
-                  if old20 in s and 'h2s_use_current_dataset' not in s:
-                      s = s.replace(old20, new, 1)
+                  old='uploaded = st.file_uploader("Upload H₂S / reactor dataset", type=["xlsx", "csv"], help="Use a workbook containing experimental observations. Original data are not changed.")'
+                  new='''current_df = get_dataframe()\nuse_current = current_df is not None and st.checkbox("Use current Data Analyzer dataset", value=True, key="h2s_use_current_dataset")\nif use_current:\n    meta = metadata()\n    st.success(f"Current Data Analyzer dataset: **{meta['filename']}**" + (f" • worksheet: **{meta['sheet']}**" if meta.get('sheet') else ""))\n    uploaded = io.BytesIO(current_df.to_csv(index=False).encode("utf-8"))\n    uploaded.name = "current_data.csv"\nelse:\n    uploaded = st.file_uploader("Upload H₂S / reactor dataset", type=["xlsx", "csv"], help="Use a workbook containing experimental observations. Original data are not changed.")'''
+                  if old in s and 'h2s_use_current_dataset' not in s: s=s.replace(old,new,1)
               else:
-                  new = '''current_df = get_dataframe()\nuse_current = False\nif current_df is not None:\n    meta = metadata()\n    st.success(f"Current Data Analyzer dataset available: **{meta['filename']}**" + (f" • worksheet: **{meta['sheet']}**" if meta.get('sheet') else ""))\n    use_current = st.checkbox("Use current Data Analyzer dataset", value=True, key="h2s_opt_use_current_dataset")\nif use_current:\n    file = io.BytesIO(current_df.to_csv(index=False).encode("utf-8"))\n    file.name = "current_data.csv"\nelse:\n    file = st.file_uploader("Upload H₂S experimental dataset", type=["xlsx", "csv"])'''
-                  if old21 in s and 'h2s_opt_use_current_dataset' not in s:
-                      s = s.replace(old21, new, 1)
-              p.write_text(s, encoding='utf-8')
+                  old='file = st.file_uploader("Upload H₂S experimental dataset", type=["xlsx", "csv"])'
+                  new='''current_df = get_dataframe()\nuse_current = current_df is not None and st.checkbox("Use current Data Analyzer dataset", value=True, key="h2s_opt_use_current_dataset")\nif use_current:\n    meta = metadata()\n    st.success(f"Current Data Analyzer dataset: **{meta['filename']}**" + (f" • worksheet: **{meta['sheet']}**" if meta.get('sheet') else ""))\n    file = io.BytesIO(current_df.to_csv(index=False).encode("utf-8"))\n    file.name = "current_data.csv"\nelse:\n    file = st.file_uploader("Upload H₂S experimental dataset", type=["xlsx", "csv"])'''
+                  if old in s and 'h2s_opt_use_current_dataset' not in s: s=s.replace(old,new,1)
+              p.write_text(s,encoding='utf-8')
           PY
 
       - name: Syntax check
-        run: |
-          python -m py_compile src/scimantra/research_session.py src/scimantra/data_ui.py pages/20_H2S_Bioreactor_Research_Suite.py pages/21_H2S_Optimization_and_Publication.py
+        run: python -m py_compile src/scimantra/research_session.py src/scimantra/data_ui.py pages/20_H2S_Bioreactor_Research_Suite.py pages/21_H2S_Optimization_and_Publication.py
 
       - name: Commit integration changes
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add src/scimantra/data_ui.py pages/20_H2S_Bioreactor_Research_Suite.py pages/21_H2S_Optimization_and_Publication.py
-          if git diff --cached --quiet; then
-            echo 'No integration changes needed.'
-          else
-            git commit -m 'Integrate single-upload H2S research workflow'
-            git push
-          fi
+          if git diff --cached --quiet; then echo 'No integration changes needed.'; else git commit -m 'Integrate single-upload H2S research workflow'; git push; fi
