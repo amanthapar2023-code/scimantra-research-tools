@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import re
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -46,6 +47,7 @@ def _measurement_columns(df: pd.DataFrame) -> list[str]:
 
 
 
+
 def _relationship_columns(df: pd.DataFrame, numeric: list[str]) -> list[str]:
     """Return useful numeric variables for correlation, excluding worksheet artifacts and repeated calculations."""
     candidates = []
@@ -61,13 +63,9 @@ def _relationship_columns(df: pd.DataFrame, numeric: list[str]) -> list[str]:
     selected = []
     seen_bases = set()
     for col, x in candidates:
-        # Excel commonly creates "Column", "Column.1", "Column.2" when the
-        # same calculation is copied across worksheets. Keep the first useful
-        # representative, while still checking for exact duplicate series.
         base = re.sub(r"\.\d+$", "", str(col)).strip().lower()
         if base in seen_bases:
             continue
-
         duplicate = False
         for _, prev in selected:
             paired = pd.concat([x.reset_index(drop=True), prev.reset_index(drop=True)], axis=1).dropna()
@@ -270,17 +268,61 @@ def render() -> None:
         else:
             st.markdown("### 🔗 Relationship analysis")
             st.caption("SciMantra excludes Unnamed:* Excel artifacts, constants, repeated .1/.2 worksheet calculation columns, and exact duplicate series before correlation.")
-            default_relationship = relationship_numeric[:min(10, len(relationship_numeric))]
+            default_relationship = relationship_numeric[:min(8, len(relationship_numeric))]
             selected_rel = st.multiselect("Variables for correlation", relationship_numeric, default=default_relationship, key="relationship_variables")
             method = st.radio("Correlation method", ["Pearson", "Spearman"], horizontal=True, key="correlation_method")
             if len(selected_rel) < 2:
                 st.info("Select at least two variables.")
             else:
-                corr = df[selected_rel].apply(pd.to_numeric, errors="coerce").corr(method=method.lower(), min_periods=3)
+                corr_data = df[selected_rel].apply(pd.to_numeric, errors="coerce")
+                corr = corr_data.corr(method=method.lower(), min_periods=3)
                 fig = px.imshow(corr, text_auto=".2f", aspect="auto", zmin=-1, zmax=1, title=f"{method} correlation matrix")
                 fig.update_layout(height=max(520, 45 * len(selected_rel)), margin=dict(l=20, r=20, t=70, b=20))
                 st.plotly_chart(fig, width="stretch")
                 st.dataframe(corr.round(4), width="stretch")
                 st.caption(f"Showing {len(selected_rel)} distinct analysis variables. Correlations use pairwise complete observations with a minimum of 3 paired values; interpret small samples cautiously.")
+
+            st.markdown("### 🧪 H₂S research relationships")
+            names = {str(c).lower().replace("₂", "2"): c for c in df.columns}
+            def pick(keys):
+                for key, col in names.items():
+                    if any(k in key for k in keys):
+                        return col
+                return None
+
+            inlet = pick(["inlet h2s", "influent h2s", "input h2s", "initial h2s"])
+            outlet = pick(["outlet h2s", "effluent h2s", "output h2s", "final h2s"])
+            removal = pick(["removal efficiency", "removal %", "h2s removal"])
+            load = pick(["inlet h2s load", "h2s loading", "loading"])
+            ebrt = pick(["ebrt"])
+            ph = pick(["pH", "ph"])
+            x_candidates = []
+            if inlet and outlet: x_candidates.append(("Inlet H₂S vs Outlet H₂S", inlet, outlet))
+            if load and removal: x_candidates.append(("Inlet H₂S loading vs Removal efficiency", load, removal))
+            if ebrt and removal: x_candidates.append(("EBRT vs Removal efficiency", ebrt, removal))
+            if ph and removal: x_candidates.append(("pH vs Removal efficiency", ph, removal))
+
+            if not x_candidates:
+                st.info("No complete H₂S relationship pair was detected automatically. Use the correlation selector above or rename columns with clear H₂S, loading, EBRT and pH labels.")
+            else:
+                label, xcol, ycol = st.selectbox("Research relationship", x_candidates, format_func=lambda z: z[0], key="h2s_relationship_pair")
+                work = pd.DataFrame({"X": pd.to_numeric(df[xcol], errors="coerce"), "Y": pd.to_numeric(df[ycol], errors="coerce")}).dropna()
+                if len(work) >= 3 and work["X"].nunique() >= 2:
+                    r = stats.linregress(work["X"], work["Y"])
+                    c1,c2,c3,c4 = st.columns(4)
+                    c1.metric("N", len(work)); c2.metric("Pearson r", f"{r.rvalue:.4f}"); c3.metric("R²", f"{r.rvalue**2:.4f}"); c4.metric("p-value", f"{r.pvalue:.4g}")
+                    plot = px.scatter(work, x="X", y="Y", trendline="ols", title=label)
+                    plot.update_layout(height=500)
+                    st.plotly_chart(plot, width="stretch")
+                    st.caption(f"X = {xcol} • Y = {ycol}. Regression is an association screen, not proof of causality or a global optimum.")
+                    result = pd.DataFrame([{
+                        "Relationship": label, "X variable": xcol, "Y variable": ycol, "N": len(work),
+                        "Pearson r": r.rvalue, "R²": r.rvalue**2, "Slope": r.slope,
+                        "Intercept": r.intercept, "p-value": r.pvalue, "Std. error": r.stderr
+                    }])
+                    st.dataframe(result.round(6), width="stretch", hide_index=True)
+                    st.download_button("⬇️ Download relationship result", result.to_csv(index=False).encode("utf-8"), "scimantra_h2s_relationship.csv", "text/csv", width="stretch")
+                else:
+                    st.info("At least three paired observations and variation in X are required for regression screening.")
     with tabs[7]:
         st.markdown("### Export"); st.write("Download the original dataset or a selected working subset for your next analysis step."); cols=st.multiselect("Columns to export",list(df.columns),default=list(df.columns)); export_df=df[cols] if cols else df; _download(export_df); st.download_button("⬇️ Download Excel",_excel_bytes(export_df),"scimantra_data.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",width="stretch"); st.caption("SciMantra does not silently impute, delete or transform observations. Any cleaning decision should be documented and scientifically justified.")
