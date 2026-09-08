@@ -1,0 +1,42 @@
+name: Connect H2S figure engine
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  connect:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch H2S figure navigation
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path("app.py")
+          text = p.read_text(encoding="utf-8")
+          old = '("📦 H₂S Submission Packager","nav_h2s_submission"),("🗂️ H₂S Study Packager","nav_h2s_packager")]'
+          new = '("📦 H₂S Submission Packager","nav_h2s_submission"),("🗂️ H₂S Study Packager","nav_h2s_packager"),("📊 H₂S Figure Engine","nav_h2s_figures")]'
+          if old in text:
+              text = text.replace(old, new, 1)
+          marker = 'elif section=="🗂️ H₂S Study Packager":\n    import runpy; runpy.run_path("pages/27_H2S_Study_Packager.py")'
+          route = marker + '\n\nelif section=="📊 H₂S Figure Engine":\n    import runpy; runpy.run_path("pages/28_H2S_Publication_Figure_Engine.py")'
+          if marker in text and 'elif section=="📊 H₂S Figure Engine":' not in text:
+              text = text.replace(marker, route, 1)
+          p.write_text(text, encoding="utf-8")
+      - name: Syntax check
+        run: |
+          python -m py_compile app.py
+          python -m py_compile pages/28_H2S_Publication_Figure_Engine.py
+      - name: Commit navigation
+        shell: bash
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app.py
+          git commit -m "Add H2S publication figure engine navigation"
+          git push
