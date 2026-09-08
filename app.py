@@ -30,7 +30,7 @@ st.sidebar.markdown("**🏠 WORKSPACE**"); nav("🏠 Dashboard","nav_dashboard")
 st.sidebar.markdown("**🧪 CORE RESEARCH**")
 for label,key in [("🧪 Laboratory Calculators","nav_lab"),("📊 Statistics","nav_stats"),("🌱 Environmental Biotechnology","nav_env"),("📈 Data Analyzer","nav_data"),("📊 Advanced Analysis","nav_advanced"),("🔬 Research Tools","nav_research"),("🌍 TEA & LCA","nav_tea")]: nav(label,key)
 st.sidebar.markdown("**⭐ PRO RESEARCH SUITE**")
-for label,key in [("SciMantra Pro Workspace","nav_pro_workspace"),("AI Research Assistant","nav_ai"),("Statistical Copilot","nav_copilot"),("Publication Figure Generator","nav_figures"),("Automated Research Report","nav_report"),("Experimental Design Power Analysis","nav_power")]: nav(label,key)
+for label,key in [("SciMantra Pro Workspace","nav_pro_workspace"),("AI Research Assistant","nav_ai"),("Statistical Copilot","nav_copilot"),("Publication Figure Generator","nav_figures"),("Automated Research Report","nav_report"),("Experimental Design Power Analysis","nav_power"),("🧪 H₂S Publication Dashboard","nav_h2s_publication")]: nav(label,key)
 st.sidebar.markdown("**☁️ ACCOUNT & PROJECTS**")
 for label,key in [("Research Project Manager","nav_projects"),("Accounts Project Hub","nav_accounts"),("Subscriptions and Pro","nav_subscriptions"),("Login and Cloud Account","nav_login"),("Cloud Project Workspace","nav_cloud"),("Account Dashboard","nav_dashboard_account"),("Admin Control Center","nav_admin")]: nav(label,key)
 section=st.session_state.scimantra_page
@@ -123,6 +123,10 @@ elif section=="🌱 Environmental Biotechnology":
 
 elif section=="📈 Data Analyzer":
     from src.scimantra.data_ui import render as render_data_ui; render_data_ui()
+
+elif section=="🧪 H₂S Publication Dashboard":
+    import runpy
+    runpy.run_path("pages/22_H2S_Publication_Results_Dashboard.py")
 
 elif section=="🔬 Research Tools":
     st.subheader("Research Utilities"); tool=st.selectbox("Tool",["Standard curve","Experimental design checklist","Manuscript checklist"])
