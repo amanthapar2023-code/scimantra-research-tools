@@ -11,18 +11,10 @@ from src.scimantra.laboratory import molarity_from_mass, dilution_stock_volume, 
 from src.scimantra.environmental import removal_efficiency, loading_rate, ebrt, h2s_removal
 
 st.set_page_config(page_title="SciMantra Research Platform", page_icon="🔬", layout="wide", initial_sidebar_state="expanded")
-
 st.markdown("""
 <style>
-.block-container{max-width:1450px;padding-top:1.2rem;padding-bottom:3rem}
-.hero{padding:2rem 2.2rem;border-radius:22px;background:linear-gradient(135deg,#e9f4ff 0%,#f8fbff 55%,#eefaf5 100%);border:1px solid #d8e8f5;margin-bottom:1.3rem;box-shadow:0 6px 24px rgba(20,55,80,.06)}
-.hero h1{margin:0;color:#0b2033;font-size:2.55rem;font-weight:750}.hero p{margin:.5rem 0 0;color:#486176;font-size:1.08rem}
-.eyebrow{font-size:.78rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#2574a8;margin-bottom:.35rem}
-.section-title{font-size:1.45rem;font-weight:700;color:#102b40;margin:1.1rem 0 .7rem}
-.tool-card{border:1px solid #dfe8ee;border-radius:16px;padding:1.05rem 1.1rem;background:#fff;min-height:132px;margin-bottom:.9rem;box-shadow:0 3px 12px rgba(20,55,80,.045)}
-.tool-card h3{margin:0 0 .35rem;color:#17344a;font-size:1.12rem}.tool-card p{margin:0;color:#536b7b;line-height:1.5}.pro-card{background:linear-gradient(135deg,#fffdf5,#fff);border-color:#ead9a5}
-.flow{border:1px solid #dfe8ee;border-radius:14px;padding:1rem;text-align:center;background:#fff;min-height:92px}.flow strong{display:block;color:#18364b}.flow span{font-size:.86rem;color:#637889}
-footer{visibility:hidden}
+.block-container{max-width:1450px;padding-top:1.2rem;padding-bottom:3rem}.hero{padding:2rem 2.2rem;border-radius:22px;background:linear-gradient(135deg,#e9f4ff 0%,#f8fbff 55%,#eefaf5 100%);border:1px solid #d8e8f5;margin-bottom:1.3rem;box-shadow:0 6px 24px rgba(20,55,80,.06)}
+.hero h1{margin:0;color:#0b2033;font-size:2.55rem;font-weight:750}.hero p{margin:.5rem 0 0;color:#486176;font-size:1.08rem}.eyebrow{font-size:.78rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#2574a8;margin-bottom:.35rem}.section-title{font-size:1.45rem;font-weight:700;color:#102b40;margin:1.1rem 0 .7rem}.tool-card{border:1px solid #dfe8ee;border-radius:16px;padding:1.05rem 1.1rem;background:#fff;min-height:132px;margin-bottom:.9rem;box-shadow:0 3px 12px rgba(20,55,80,.045)}.tool-card h3{margin:0 0 .35rem;color:#17344a;font-size:1.12rem}.tool-card p{margin:0;color:#536b7b;line-height:1.5}.pro-card{background:linear-gradient(135deg,#fffdf5,#fff);border-color:#ead9a5}.flow{border:1px solid #dfe8ee;border-radius:14px;padding:1rem;text-align:center;background:#fff;min-height:92px}.flow strong{display:block;color:#18364b}.flow span{font-size:.86rem;color:#637889}footer{visibility:hidden}
 </style>
 """,unsafe_allow_html=True)
 
@@ -45,15 +37,12 @@ st.markdown("""
 <div class="hero"><div class="eyebrow">Integrated research platform</div><h1>🔬 SciMantra</h1><p><b>Research. Analyze. Visualize. Publish.</b><br>Practical scientific tools for laboratory calculations, experimental data, environmental biotechnology and research reporting.</p></div>
 """,unsafe_allow_html=True)
 
-def download_df(df,filename="scimantra_results.csv"):
-    st.download_button("⬇️ Download CSV",df.to_csv(index=False).encode("utf-8"),filename,"text/csv")
-
+def download_df(df,filename="scimantra_results.csv"): st.download_button("⬇️ Download CSV",df.to_csv(index=False).encode("utf-8"),filename,"text/csv")
 def irr_roots(cashflows,max_rate=1000.0):
     cf=np.asarray(cashflows,dtype=float)
     if len(cf)<2 or not(np.any(cf>0) and np.any(cf<0)): return []
     def f(r): return sum(v/((1+r)**i) for i,v in enumerate(cf))
-    grid=np.unique(np.concatenate(([-.9999,-.99,-.9,-.5,-.1,0.0],np.geomspace(1e-8,max_rate,300))))
-    vals=[f(float(r)) for r in grid]; roots=[]
+    grid=np.unique(np.concatenate(([-.9999,-.99,-.9,-.5,-.1,0.0],np.geomspace(1e-8,max_rate,300)))); vals=[f(float(r)) for r in grid]; roots=[]
     for i in range(len(grid)-1):
         a,b=float(grid[i]),float(grid[i+1]); fa,fb=vals[i],vals[i+1]
         if not(np.isfinite(fa) and np.isfinite(fb)): continue
@@ -64,7 +53,6 @@ def irr_roots(cashflows,max_rate=1000.0):
                 if not roots or abs(root-roots[-1])>1e-6: roots.append(root)
             except Exception: pass
     return roots
-
 def npv_of(cf,rate): return sum(v/((1+rate)**i) for i,v in enumerate(cf))
 def payback(cf,discounted=False,rate=0.0):
     cumulative=0.0
@@ -139,7 +127,10 @@ elif section=="📊 Statistics":
         except Exception: st.warning("Enter equal-length arrays.")
     else:
         x=st.text_area("X values","1,2,3,4,5"); y=st.text_area("Y values","2,4,5,8,10")
-        try: xx=np.array([float(v) for v in x.split(",") if v.strip()]); yy=np.array([float(v) for v in y.split(",") if v.strip()]; r=stats.linregress(xx,yy); c=st.columns(4); c[0].metric("Slope",f"{r.slope:.6g}"); c[1].metric("Intercept",f"{r.intercept:.6g}"); c[2].metric("R²",f"{r.rvalue**2:.6g}"); c[3].metric("p-value",f"{r.pvalue:.6g}"); order=np.argsort(xx); st.plotly_chart(go.Figure([go.Scatter(x=xx,y=yy,mode="markers"),go.Scatter(x=xx[order],y=r.intercept+r.slope*xx[order],mode="lines")]),width="stretch")
+        try:
+            xx=np.array([float(v) for v in x.split(",") if v.strip()]); yy=np.array([float(v) for v in y.split(",") if v.strip()]); r=stats.linregress(xx,yy)
+            c=st.columns(4); c[0].metric("Slope",f"{r.slope:.6g}"); c[1].metric("Intercept",f"{r.intercept:.6g}"); c[2].metric("R²",f"{r.rvalue**2:.6g}"); c[3].metric("p-value",f"{r.pvalue:.6g}")
+            order=np.argsort(xx); st.plotly_chart(go.Figure([go.Scatter(x=xx,y=yy,mode="markers"),go.Scatter(x=xx[order],y=r.intercept+r.slope*xx[order],mode="lines")]),width="stretch")
         except Exception: st.warning("Enter equal-length arrays.")
 
 elif section=="🌱 Environmental Biotechnology":
