@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+from src.scimantra.research_session import get_dataframe, metadata
 from scipy import stats
 
 st.set_page_config(page_title="H₂S Bioreactor Research Suite", page_icon="🧪", layout="wide")
@@ -27,7 +28,15 @@ def excel_bytes(df):
         df.to_excel(writer, index=False, sheet_name="H2S_Analysis")
     return buf.getvalue()
 
-uploaded = st.file_uploader("Upload H₂S / reactor dataset", type=["xlsx", "csv"], help="Use a workbook containing experimental observations. Original data are not changed.")
+current_df = get_dataframe()
+use_current = current_df is not None and st.checkbox("Use current Data Analyzer dataset", value=True, key="h2s_use_current_dataset")
+if use_current:
+    meta = metadata()
+    st.success(f"Current Data Analyzer dataset: **{meta['filename']}**" + (f" • worksheet: **{meta['sheet']}**" if meta.get('sheet') else ""))
+    uploaded = io.BytesIO(current_df.to_csv(index=False).encode("utf-8"))
+    uploaded.name = "current_data.csv"
+else:
+    uploaded = st.file_uploader("Upload H₂S / reactor dataset", type=["xlsx", "csv"], help="Use a workbook containing experimental observations. Original data are not changed.")
 if not uploaded:
     st.info("Upload your H₂S experimental workbook to begin.")
     st.markdown("### Recommended columns")

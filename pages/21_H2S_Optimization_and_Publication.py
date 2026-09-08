@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+from src.scimantra.research_session import get_dataframe, metadata
 
 st.set_page_config(page_title="H₂S Optimization & Publication", page_icon="📈", layout="wide")
 
@@ -26,7 +27,15 @@ def xlsx(df):
         df.to_excel(writer, index=False, sheet_name="Optimization")
     return buf.getvalue()
 
-file = st.file_uploader("Upload H₂S experimental dataset", type=["xlsx", "csv"])
+current_df = get_dataframe()
+use_current = current_df is not None and st.checkbox("Use current Data Analyzer dataset", value=True, key="h2s_opt_use_current_dataset")
+if use_current:
+    meta = metadata()
+    st.success(f"Current Data Analyzer dataset: **{meta['filename']}**" + (f" • worksheet: **{meta['sheet']}**" if meta.get('sheet') else ""))
+    file = io.BytesIO(current_df.to_csv(index=False).encode("utf-8"))
+    file.name = "current_data.csv"
+else:
+    file = st.file_uploader("Upload H₂S experimental dataset", type=["xlsx", "csv"])
 if not file:
     st.info("Upload your experimental dataset to rank observed operating conditions.")
     st.stop()

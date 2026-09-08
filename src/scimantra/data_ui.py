@@ -6,6 +6,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 from scipy import stats
+from src.scimantra.research_session import store_dataframe
 
 
 def _excel_sheets(uploaded):
@@ -172,9 +173,18 @@ def render() -> None:
     try: df=_load(uploaded,sheet_name)
     except Exception as exc: st.error(f"Could not read the file: {exc}"); return
     if df.empty: st.warning("The selected worksheet contains no rows."); return
+    store_dataframe(df, uploaded.name, sheet_name)
     numeric=_measurement_columns(df); categorical=[c for c in df.columns if c not in numeric]; missing=int(df.isna().sum().sum()); duplicate=int(df.duplicated().sum())
     m=st.columns(5); m[0].metric("Rows",f"{len(df):,}"); m[1].metric("Columns",f"{len(df.columns):,}"); m[2].metric("Measurements",f"{len(numeric):,}"); m[3].metric("Missing cells",f"{missing:,}"); m[4].metric("Duplicate rows",f"{duplicate:,}")
     tabs=st.tabs(["🔎 Data","🧹 Quality","📊 Statistics","🧬 Replicates","🌱 H₂S Research","📈 Visualize","🔗 Relationships","⬇️ Export"])
+    if any(k in str(c).lower().replace("₂","2") for c in df.columns for k in ["h2s","hydrogen sulfide","sulfide","sulphide"]):
+        st.markdown("### 🧪 Continue the H₂S research workflow")
+        st.caption("This dataset is available across the H₂S research pages for this browser session — no second upload is required.")
+        b1, b2 = st.columns(2)
+        if b1.button("Open H₂S Bioreactor Research Suite", width="stretch", key="open_h2s_suite"):
+            st.switch_page("pages/20_H2S_Bioreactor_Research_Suite.py")
+        if b2.button("Open H₂S Optimization & Publication", width="stretch", key="open_h2s_opt"):
+            st.switch_page("pages/21_H2S_Optimization_and_Publication.py")
     with tabs[0]:
         st.markdown("### Dataset preview"); st.dataframe(df.head(100),width="stretch",height=420); st.caption(f"Showing up to 100 of {len(df):,} rows • {len(df.columns):,} columns")
         types=pd.DataFrame({"Column":df.columns,"Type":[str(df[c].dtype) for c in df.columns],"Non-null":[int(df[c].notna().sum()) for c in df.columns]}); st.dataframe(types,width="stretch",hide_index=True)
