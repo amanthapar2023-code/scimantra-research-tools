@@ -11,7 +11,7 @@ title = st.text_input("Research title", value=project, key="challenge_title")
 abstract = st.text_area("Paste your abstract / study summary", height=220, placeholder="Include your objective, methods, main findings and conclusion. Do not invent findings for this test.")
 conclusion = st.text_area("Main conclusion", height=120, placeholder="What do you believe your study demonstrates?")
 
-if st.button("🔥 ATTACK MY RESEARCH", type="primary", use_container_width=True):
+if st.button("🔥 ATTACK MY RESEARCH", type="primary", width="stretch"):
     text = " ".join([title, abstract, conclusion]).strip()
     if not text:
         st.error("Enter at least a title or study summary.")

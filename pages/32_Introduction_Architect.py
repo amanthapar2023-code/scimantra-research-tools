@@ -45,7 +45,7 @@ st.divider()
 st.subheader("📚 Anchor-paper workspace")
 if papers:
     df=pd.DataFrame([{"Year":p.get("Year"),"Journal":p.get("Journal"),"Title":p.get("Title"),"DOI":p.get("DOI")} for p in papers])
-    st.dataframe(df,use_container_width=True,hide_index=True)
+    st.dataframe(df,width="stretch",hide_index=True)
 else:
     st.caption("No literature metadata was retrieved. Add verified papers manually in your next iteration.")
 

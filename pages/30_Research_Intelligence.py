@@ -30,7 +30,7 @@ with st.form("research_title_form"):
     with c1:
         st.caption("Start with only the title. You can refine the field and assumptions after the first blueprint.")
     with c2:
-        submitted = st.form_submit_button("🚀 Build Research Intelligence", type="primary", use_container_width=True)
+        submitted = st.form_submit_button("🚀 Build Research Intelligence", type="primary", width="stretch")
 
 if submitted:
     if not title.strip():
@@ -107,7 +107,7 @@ with tabs[5]:
         st.warning("The literature metadata service could not be reached right now. The title blueprint is still available.")
     if papers:
         matrix = build_matrix(papers, st.session_state["ri_title"])
-        st.dataframe(pd.DataFrame(matrix), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(matrix), width="stretch", hide_index=True)
         st.caption("Initial matrix uses bibliographic metadata. Claim-level extraction will require abstracts/full text in a later engine version.")
     else:
         st.info("No literature metadata was retrieved yet. Try the title again when the literature service is available.")
