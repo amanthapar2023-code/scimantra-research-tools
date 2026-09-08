@@ -67,6 +67,7 @@ def _measurement_columns(df: pd.DataFrame) -> list[str]:
 
 
 
+
 def _relationship_columns(df: pd.DataFrame, numeric: list[str]) -> list[str]:
     """Return useful numeric variables for correlation, excluding worksheet artifacts and repeated calculations."""
     candidates = []
