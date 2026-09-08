@@ -1,0 +1,2 @@
+stripe>=12,<13
+supabase>=2,<3
