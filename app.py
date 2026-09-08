@@ -86,31 +86,8 @@ if section=="🏠 Dashboard":
     with c2: st.info("⭐ **Pro:** unlock the full analysis → figure → report workflow.")
 
 elif section=="🧪 Laboratory Calculators":
-    tool=st.selectbox("Calculator",["Molarity","Dilution (C₁V₁ = C₂V₂)","% Solution","Normality","CFU/mL","Biomass concentration","Growth rate","Specific growth rate","BOD","COD"])
-    if tool=="Molarity":
-        mass=st.number_input("Mass of solute (g)",min_value=0.,value=1.); mw=st.number_input("Molecular weight (g/mol)",min_value=1e-6,value=58.44); vol=st.number_input("Final volume (L)",min_value=1e-6,value=1.); st.metric("Molarity",f"{molarity_from_mass(mass,mw,vol):.6g} mol/L")
-    elif tool.startswith("Dilution"):
-        c1=st.number_input("C₁",min_value=0.,value=100.); c2=st.number_input("C₂",min_value=1e-6,value=10.); v2=st.number_input("V₂",min_value=1e-6,value=100.)
-        try: v1=dilution_stock_volume(c1,c2,v2); st.metric("Stock volume V₁",f"{v1:.4g}"); st.metric("Diluent volume",f"{v2-v1:.4g}")
-        except ValueError as exc: st.error(str(exc))
-    elif tool=="% Solution":
-        st.selectbox("Type",["w/v","w/w","v/v"]); amount=st.number_input("Solute amount",min_value=0.,value=5.); total=st.number_input("Total amount/volume",min_value=1e-6,value=100.); st.metric("Percentage",f"{solution_percentage(amount,total):.4g}%")
-    elif tool=="Normality":
-        m=st.number_input("Molarity (mol/L)",min_value=0.,value=1.); n=st.number_input("n-factor",min_value=1e-6,value=1.); st.metric("Normality",f"{normality_from_molarity(m,n):.6g} N")
-    elif tool=="CFU/mL":
-        colonies=st.number_input("Colonies",min_value=0.,value=125.); dilution=st.number_input("Reciprocal dilution",min_value=1.,value=100000.); plated=st.number_input("Volume plated (mL)",min_value=1e-6,value=.1); st.metric("CFU/mL",f"{cfu_per_ml(colonies,dilution,plated):.6g}")
-    elif tool=="Biomass concentration":
-        dry=st.number_input("Dry biomass (g)",min_value=0.,value=1.); v=st.number_input("Culture volume (L)",min_value=1e-6,value=1.); st.metric("Biomass",f"{biomass_concentration(dry,v):.6g} g/L")
-    elif tool=="Growth rate":
-        x1=st.number_input("Measurement 1",value=.1); x2=st.number_input("Measurement 2",value=.8); t1=st.number_input("Time 1",value=0.); t2=st.number_input("Time 2",value=10.)
-        try: st.metric("Growth rate",f"{growth_rate(x1,x2,t1,t2):.6g}")
-        except ValueError: st.metric("Growth rate","N/A")
-    elif tool=="Specific growth rate":
-        x1=st.number_input("X₁",min_value=1e-6,value=.1); x2=st.number_input("X₂",min_value=1e-6,value=.8); dt=st.number_input("Δt",min_value=1e-6,value=10.); st.metric("μ",f"{specific_growth_rate(x1,x2,dt):.6g} time⁻¹")
-    elif tool=="BOD":
-        initial=st.number_input("Initial DO (mg/L)",value=8.); final=st.number_input("Final DO (mg/L)",value=3.); sample=st.number_input("Sample volume (mL)",min_value=1e-6,value=15.); bottle=st.number_input("Bottle volume (mL)",min_value=1e-6,value=300.); st.metric("Approx. BOD₅",f"{bod_approx(initial,final,sample,bottle):.6g} mg/L")
-    else:
-        a=st.number_input("Blank titration A (mL)",value=20.); b=st.number_input("Sample titration B (mL)",value=12.); normality=st.number_input("Titrant normality",min_value=1e-6,value=.1); volume=st.number_input("Sample volume (mL)",min_value=1e-6,value=10.); st.metric("COD",f"{cod_from_titration(a,b,normality,volume):.6g} mg/L")
+    from src.scimantra.lab_ui import render as render_lab_ui
+    render_lab_ui()
 
 elif section=="📊 Statistics":
     tool=st.selectbox("Statistical tool",["Descriptive statistics","t-Test","One-way ANOVA","Correlation","Linear regression"])
