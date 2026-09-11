@@ -7,7 +7,6 @@ from datetime import datetime, timezone
 import pandas as pd
 import streamlit as st
 
-st.set_page_config(page_title="H₂S Journal Submission Packager", page_icon="📦", layout="wide")
 st.title("📦 H₂S Journal Submission Packager")
 st.caption("Turn completed research evidence into a structured journal-submission package without inventing citations or experimental claims.")
 
@@ -131,3 +130,32 @@ else:
     st.warning(f"Submission gate is not complete: {len(items) - completed} manuscript item(s) and {len(review_checks) - review_done} evidence item(s) remain.")
 
 st.warning("This tool organizes and audits submission readiness. It does not certify compliance with a journal's current author instructions and does not fabricate references, declarations, affiliations or experimental facts.")
+
+# Optional cloud persistence for the final submission manifest and readiness record.
+try:
+    from src.scimantra.cloud import client, configured, upload_project_file, create_artifact
+    import hashlib, zipfile
+    supa = client(st.secrets) if configured(st.secrets) else None
+    vault_user = supa.auth.get_user().user if supa else None
+except Exception:
+    supa = None
+    vault_user = None
+
+if supa and vault_user:
+    st.markdown("### ☁️ Project Artifact Vault")
+    projects = supa.table("projects").select("id,name").order("updated_at", desc=True).execute().data or []
+    if projects:
+        project_map={x["name"]:x for x in projects}
+        project_name=st.selectbox("Save submission record to", list(project_map), key="submission_vault_project")
+        if st.button("☁️ Save submission package to Project Vault", type="primary"):
+            package=io.BytesIO()
+            with zipfile.ZipFile(package,"w",zipfile.ZIP_DEFLATED) as z:
+                z.writestr("submission_manifest.json", manifest_json)
+                z.writestr("README.md", readme)
+                z.writestr("cover_letter.txt", cover)
+            data=package.getvalue(); digest=hashlib.sha256(data).hexdigest(); pid=project_map[project_name]["id"]
+            path=upload_project_file(supa,str(vault_user.id),pid,"submission/h2s_submission_package.zip",data,"application/zip")
+            create_artifact(supa,str(vault_user.id),pid,"h2s_submission_package.zip","submission",path,"application/zip",len(data),digest,"H₂S Journal Submission Packager",{"journal":journal,"title":title,"readiness_percent":round(progress*100,1),"evidence_percent":round(review_progress*100,1)})
+            st.success("Submission package saved to the project Artifact Vault.")
+
+
