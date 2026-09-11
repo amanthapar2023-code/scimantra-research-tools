@@ -1,0 +1,60 @@
+name: Add Research Evidence Graph
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Integrate navigation
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path("app.py")
+          text = p.read_text(encoding="utf-8")
+          nav = '("🔗 Research Evidence Graph","nav_evidence_graph")'
+          anchors = [
+              '("🧭 Research Project Dashboard 2.0","nav_project_dashboard_2")',
+              '("🧭 Research Evidence Timeline","nav_evidence_timeline")',
+          ]
+          if nav not in text:
+              for anchor in anchors:
+                  if anchor in text:
+                      text = text.replace(anchor, anchor + ",\n        " + nav, 1)
+                      break
+              else:
+                  raise SystemExit("Navigation anchor not found")
+          route = 'elif section=="🔗 Research Evidence Graph":\n        import runpy\n        runpy.run_path("pages/37_Research_Evidence_Graph.py")\n        st.stop()\n    '
+          if 'runpy.run_path("pages/37_Research_Evidence_Graph.py")' not in text:
+              anchors = ['elif section=="🧭 Research Project Dashboard 2.0":', 'elif section=="🧭 Research Evidence Timeline":']
+              for anchor in anchors:
+                  if anchor in text:
+                      text = text.replace(anchor, route + anchor, 1)
+                      break
+              else:
+                  raise SystemExit("Route anchor not found")
+          p.write_text(text, encoding="utf-8")
+      - name: Syntax check
+        run: python -m py_compile app.py pages/37_Research_Evidence_Graph.py
+      - name: Commit integration
+        run: |
+          git add app.py
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Integrate Research Evidence Graph"
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
