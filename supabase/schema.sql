@@ -108,7 +108,6 @@ create policy milestones_owner_delete on public.milestones for delete using (own
 drop policy if exists subscription_self_select on public.subscriptions;
 create policy subscription_self_select on public.subscriptions for select using (auth.uid() = user_id);
 
--- Every new cloud project automatically gives its creator an owner membership.
 create or replace function public.handle_new_project() returns trigger language plpgsql security definer set search_path = public as $$
 begin
   insert into public.project_members (project_id, user_id, role) values (new.id, new.owner_id, 'owner') on conflict (project_id, user_id) do update set role = 'owner';
@@ -136,3 +135,15 @@ end;
 $$;
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users for each row execute procedure public.handle_new_user();
+
+-- Private object storage for research datasets and generated artifacts.
+insert into storage.buckets (id, name, public) values ('research-files', 'research-files', false) on conflict (id) do update set public = false;
+
+drop policy if exists research_files_select on storage.objects;
+drop policy if exists research_files_insert on storage.objects;
+drop policy if exists research_files_update on storage.objects;
+drop policy if exists research_files_delete on storage.objects;
+create policy research_files_select on storage.objects for select to authenticated using (bucket_id = 'research-files' and (storage.foldername(name))[1] = auth.uid()::text);
+create policy research_files_insert on storage.objects for insert to authenticated with check (bucket_id = 'research-files' and (storage.foldername(name))[1] = auth.uid()::text);
+create policy research_files_update on storage.objects for update to authenticated using (bucket_id = 'research-files' and (storage.foldername(name))[1] = auth.uid()::text) with check (bucket_id = 'research-files' and (storage.foldername(name))[1] = auth.uid()::text);
+create policy research_files_delete on storage.objects for delete to authenticated using (bucket_id = 'research-files' and (storage.foldername(name))[1] = auth.uid()::text);
