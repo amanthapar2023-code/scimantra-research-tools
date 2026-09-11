@@ -15,8 +15,8 @@ with st.sidebar:
     st.divider(); st.success("Shared project state is active for this Streamlit session. Export the snapshot to preserve it.")
 st.title("🔬 SciMantra Research OS"); st.caption("From research idea to evidence, manuscript, peer-review challenge and the next study.")
 st.subheader("🚀 Start here")
-cols=st.columns(5)
-for col,title,desc,link in [(cols[0],"❓ Research Forge","Questions + falsifiable hypotheses","./56_Research_Question_Hypothesis_Forge"),(cols[1],"📚 Literature","Retrieve and map evidence","./52_Literature_Evidence_Retriever"),(cols[2],"🗂️ Workspace","Manage lifecycle + outputs","./76_Unified_Research_Project_Workspace"),(cols[3],"🔗 Data Linkage","Connect research artifacts","./79_Cross_Tool_Data_Linkage"),(cols[4],"⚙️ Automation","See what to do next","./81_Research_Workflow_Automation")]:
+cols=st.columns(6)
+for col,title,desc,link in [(cols[0],"❓ Research Forge","Questions + falsifiable hypotheses","./56_Research_Question_Hypothesis_Forge"),(cols[1],"📚 Literature","Retrieve and map evidence","./52_Literature_Evidence_Retriever"),(cols[2],"🗂️ Workspace","Manage lifecycle + outputs","./76_Unified_Research_Project_Workspace"),(cols[3],"🔗 Data Linkage","Connect research artifacts","./79_Cross_Tool_Data_Linkage"),(cols[4],"⚙️ Automation","See what to do next","./81_Research_Workflow_Automation"),(cols[5],"▶️ Workflow Runner","Chain outputs through research sequences","./105_Research_OS_Workflow_Runner")]:
     with col: st.markdown(f"**{title}**  \n{desc}  \n[Open →]({link})")
 p=progress(project); completion=round(100*p["complete"]/p["total"]); a,b,c,d=st.columns(4); a.metric("Completion",f"{completion}%"); b.metric("Complete",p["complete"]); c.metric("In progress",p["in_progress"]); d.metric("Blocked",p["blocked"]); st.progress(completion/100)
 st.subheader("Research lifecycle")
@@ -45,5 +45,5 @@ with i:
         try: st.session_state.os_project_data=from_json(uploaded.getvalue().decode("utf-8")); st.rerun()
         except (UnicodeDecodeError,ValueError) as exc: st.error(str(exc))
 st.divider(); st.subheader("🛡️ Control layer"); st.write("Evidence provenance · Scientific integrity · Design quality · Reviewer readiness")
-st.success("Research OS is active. Start with Research Forge, register outputs, connect them, then follow the automated next-action queue.")
+st.success("Research OS is active. Start with Research Forge, register outputs, connect them, then run an explicit workflow sequence.")
 st.caption("Decision support only. SciMantra does not certify scientific validity, novelty, causality, or publication acceptance.")
