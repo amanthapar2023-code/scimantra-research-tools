@@ -30,7 +30,7 @@ st.sidebar.markdown("**🏠 WORKSPACE**"); nav("🏠 Dashboard","nav_dashboard")
 st.sidebar.markdown("**🧪 CORE RESEARCH**")
 for label,key in [("🧪 Laboratory Calculators","nav_lab"),("📊 Statistics","nav_stats"),("🌱 Environmental Biotechnology","nav_env"),("📈 Data Analyzer","nav_data"),("📊 Advanced Analysis","nav_advanced"),("🔬 Research Tools","nav_research"),("🌍 TEA & LCA","nav_tea")]: nav(label,key)
 st.sidebar.markdown("**⭐ PRO RESEARCH SUITE**")
-for label,key in [("SciMantra Pro Workspace","nav_pro_workspace"),("AI Research Assistant","nav_ai"),("Statistical Copilot","nav_copilot"),("Publication Figure Generator","nav_figures"),("Automated Research Report","nav_report"),("Experimental Design Power Analysis","nav_power"),("🧪 H₂S Publication Dashboard","nav_h2s_publication"),("🧬 Replicate-Aware Statistical Validation","nav_replicate_validation")]: nav(label,key)
+for label,key in [("SciMantra Pro Workspace","nav_pro_workspace"),("AI Research Assistant","nav_ai"),("Statistical Copilot","nav_copilot"),("Publication Figure Generator","nav_figures"),("Automated Research Report","nav_report"),("Experimental Design Power Analysis","nav_power"),("🧪 H₂S Publication Dashboard","nav_h2s_publication"),("🧬 Replicate-Aware Statistical Validation","nav_replicate_validation"),("⚙️ Automated Research Pipeline","nav_pipeline"),("🧪 H₂S Study Design & Sample Size","nav_study_design"),("🔎 Research Data Quality Audit","nav_quality")]: nav(label,key)
 st.sidebar.markdown("**☁️ ACCOUNT & PROJECTS**")
 for label,key in [("Research Project Manager","nav_projects"),("Accounts Project Hub","nav_accounts"),("Subscriptions and Pro","nav_subscriptions"),("Login and Cloud Account","nav_login"),("Cloud Project Workspace","nav_cloud"),("Account Dashboard","nav_dashboard_account"),("Admin Control Center","nav_admin")]: nav(label,key)
 section=st.session_state.scimantra_page
@@ -123,6 +123,13 @@ elif section=="🌱 Environmental Biotechnology":
 
 elif section=="📈 Data Analyzer":
     from src.scimantra.data_ui import render as render_data_ui; render_data_ui()
+
+elif section=="🔎 Research Data Quality Audit":
+    import runpy; runpy.run_path("pages/31_Research_Data_Quality_Audit.py"); st.stop()
+elif section=="🧪 H₂S Study Design & Sample Size":
+    import runpy; runpy.run_path("pages/32_H2S_Study_Design_and_Sample_Size.py"); st.stop()
+elif section=="⚙️ Automated Research Pipeline":
+    import runpy; runpy.run_path("pages/33_Automated_Research_Pipeline.py"); st.stop()
 
 elif section=="🧬 Replicate-Aware Statistical Validation":
     import runpy; runpy.run_path("pages/30_Replicate_Aware_Statistical_Validation.py"); st.stop()
