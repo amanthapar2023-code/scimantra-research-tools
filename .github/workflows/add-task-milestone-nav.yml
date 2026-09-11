@@ -1,0 +1,61 @@
+name: Add Research Task Manager navigation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'pages/42_Research_Task_Milestone_Manager.py'
+      - '.github/workflows/add-task-milestone-nav.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch custom sidebar and route
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app.py')
+          s = p.read_text(encoding='utf-8')
+          label = '🗂️ Research Task & Milestone Manager'
+          if label not in s:
+              anchor = 'st.sidebar.markdown("**⭐ PRO RESEARCH SUITE**")'
+              block = '''\nst.sidebar.markdown("**🗂️ RESEARCH OPERATIONS**")\nnav("🗂️ Research Task & Milestone Manager", "nav_tasks")\n'''
+              if anchor in s:
+                  s = s.replace(anchor, anchor + block, 1)
+              else:
+                  raise SystemExit('Sidebar anchor not found')
+          route = '''\nelif section=="🗂️ Research Task & Milestone Manager":\n    import runpy; runpy.run_path("pages/42_Research_Task_Milestone_Manager.py"); st.stop()\n'''
+          if 'pages/42_Research_Task_Milestone_Manager.py' not in s:
+              marker = 'section=st.session_state.scimantra_page\n'
+              if marker not in s:
+                  raise SystemExit('Section marker not found')
+              # Route is inserted immediately after the section assignment and\n              # before the existing page dispatch body.\n              s = s.replace(marker, marker + route, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Syntax check
+        run: |
+          python -m py_compile app.py pages/42_Research_Task_Milestone_Manager.py src/scimantra/cloud.py
+
+      - name: Commit integration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app.py
+          if git diff --cached --quiet; then
+            echo "No navigation changes needed."
+            exit 0
+          fi
+          git commit -m "Integrate Research Task Manager navigation"
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
