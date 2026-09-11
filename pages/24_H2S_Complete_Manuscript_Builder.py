@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import io
+import hashlib
+import json
 import numpy as np
 import pandas as pd
 import streamlit as st
 from scipy import stats
 from src.scimantra.research_session import get_dataframe, metadata
 
-st.set_page_config(page_title="H₂S Complete Manuscript Builder", page_icon="📄", layout="wide")
 
 st.title("📄 H₂S Complete Manuscript Builder")
 st.caption("Generate a structured, data-traceable manuscript draft from the currently analyzed H₂S dataset. Every quantitative statement is derived from the selected data; scientific interpretation and literature claims remain under researcher control.")
@@ -159,3 +160,34 @@ with col1:
 with col2:
     st.download_button("⬇️ Download evidence workbook", excel_bytes(tables), "scimantra_h2s_manuscript_evidence.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", width="stretch")
 st.warning("Scientific safeguard: this builder drafts data-derived text only. Add literature citations, verify units and replicate definitions, check assumptions, and perform confirmation experiments before making causal or optimization claims.")
+
+# Optional persistence: save the exact generated manuscript/evidence package to the authenticated project Vault.
+try:
+    from src.scimantra.cloud import client, configured, upload_project_file, create_artifact
+    supa = client(st.secrets) if configured(st.secrets) else None
+    vault_user = supa.auth.get_user().user if supa else None
+except Exception:
+    supa = None
+    vault_user = None
+
+if supa and vault_user:
+    st.markdown("### ☁️ Research Project Vault")
+    projects = supa.table("projects").select("id,name").order("updated_at", desc=True).execute().data or []
+    if projects:
+        project_map = {x["name"]: x for x in projects}
+        project_name = st.selectbox("Save manuscript package to", list(project_map), key="manuscript_vault_project")
+        provenance = st.text_area("Vault provenance note", "Generated from the active H₂S dataset by SciMantra Complete Manuscript Builder.", key="manuscript_vault_note")
+        if st.button("☁️ Save manuscript + evidence workbook to Project Vault", type="primary"):
+            package = io.BytesIO()
+            import zipfile
+            with zipfile.ZipFile(package, "w", zipfile.ZIP_DEFLATED) as z:
+                z.writestr("manuscript.md", full)
+                z.writestr("evidence_workbook.xlsx", excel_bytes(tables))
+                z.writestr("manifest.json", json.dumps({"source":source,"rows":len(df),"analysis_units":n,"inlet":str(a),"outlet":str(b),"group":str(group),"replicate":str(rep),"time":str(time_col)}, indent=2))
+            data=package.getvalue(); digest=hashlib.sha256(data).hexdigest()
+            project_id=project_map[project_name]["id"]
+            storage_path=upload_project_file(supa,str(vault_user.id),project_id,"manuscript/h2s_manuscript_package.zip",data,"application/zip")
+            create_artifact(supa,str(vault_user.id),project_id,"h2s_manuscript_package.zip","manuscript",storage_path,"application/zip",len(data),digest,"H₂S Complete Manuscript Builder",{"note":provenance,"source":source,"analysis_units":n})
+            st.success("Manuscript package saved to the project Artifact Vault.")
+
+
