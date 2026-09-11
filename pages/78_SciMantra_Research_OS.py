@@ -35,11 +35,26 @@ with st.sidebar:
     st.session_state.os_project = st.text_input("Project name", st.session_state.os_project)
     st.session_state.os_question = st.text_area("Central research question", st.session_state.os_question, placeholder="What exactly are you trying to discover?")
     st.divider()
-    st.caption("Stage cards now point to the corresponding SciMantra specialist workbench. Status is a project-level planning state.")
+    st.caption("Stage cards point to specialist workbenches. Project artifacts can now be managed centrally.")
 
 complete = sum(v == "Complete" for v in st.session_state.os_status.values()); ready = sum(v == "Ready" for v in st.session_state.os_status.values()); blocked = sum(v == "Blocked" for v in st.session_state.os_status.values()); progress = round(100 * complete / len(STAGES))
 a,b,c,d = st.columns(4); a.metric("Project completion", f"{progress}%"); b.metric("Complete", complete); c.metric("Ready next", ready); d.metric("Blocked", blocked)
 st.progress(progress / 100)
+
+st.subheader("🚀 Project command center")
+c1,c2,c3 = st.columns(3)
+with c1:
+    st.markdown("**🗂️ Artifact Manager**")
+    st.caption("Register, search, review and archive datasets, figures, tables, claims, protocols and manuscripts.")
+    st.markdown("[Open Project Artifact Manager →](./80_Project_Artifact_Manager)")
+with c2:
+    st.markdown("**🔗 Cross-Tool Linkage**")
+    st.caption("Connect outputs across the research lifecycle and trace upstream/downstream dependencies.")
+    st.markdown("[Open Cross-Tool Linkage →](./79_Cross_Tool_Data_Linkage)")
+with c3:
+    st.markdown("**🗂️ Unified Workspace**")
+    st.caption("Track the complete project lifecycle and its current research state.")
+    st.markdown("[Open Unified Workspace →](./76_Unified_Research_Project_Workspace)")
 
 st.subheader("Research lifecycle")
 cols = st.columns(4)
@@ -59,7 +74,7 @@ st.divider(); st.subheader("Research OS control layer")
 signals=[("🔗 Evidence provenance","Trace claims back to results, analyses, datasets and raw evidence."),("🛡️ Scientific integrity","Check contradictions, unsupported claims and verification gaps."),("🧪 Design quality","Audit controls, confounding, bias, assumptions and robustness."),("🧐 Reviewer readiness","Surface likely reviewer attacks before submission.")]
 cols=st.columns(4)
 for i,(title,desc) in enumerate(signals):
-    with cols[i]: st.markdown(f'<div class="signal"><b>{title}</b><span>{desc}</span></div>',unsafe_allow_html=True)
+    with cols[i]: st.markdown(f'<div class="signal"><b>{title}</b><span>{desc}</span></div>', unsafe_allow_html=True)
 
 st.subheader("Next actions")
 actions=[]
@@ -71,5 +86,5 @@ if actions:
 else: st.success("All lifecycle stages are marked complete. Move to the next research cycle.")
 
 st.subheader("Current SciMantra intelligence chain")
-st.info("Literature → evidence matrix → novelty → gap → question/hypothesis → experiment → design optimization → synthetic pilot → falsification → causal/confounding audit → bias/error → statistical assumptions → robustness → reproducibility → provenance → contradiction/integrity → claim stress test → evidence sufficiency → generalizability → mechanism consistency → prior-art challenge → hostile peer review → decision orchestration → unified workspace → Research OS.")
+st.info("Literature → evidence matrix → novelty → gap → question/hypothesis → experiment → design optimization → synthetic pilot → falsification → causal/confounding audit → bias/error → statistical assumptions → robustness → reproducibility → provenance → contradiction/integrity → claim stress test → evidence sufficiency → generalizability → mechanism consistency → prior-art challenge → hostile peer review → decision orchestration → unified workspace → cross-tool linkage → artifact management → Research OS.")
 st.caption(f"Workspace snapshot: {datetime.now().strftime('%Y-%m-%d %H:%M')} · Decision support only; scientific validity remains the researcher's responsibility.")
