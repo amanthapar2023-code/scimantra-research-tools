@@ -1,0 +1,36 @@
+name: Integrate Replicate Validation
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate integration
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+          required = Path('pages/30_Replicate_Aware_Statistical_Validation.py')
+          assert required.exists(), 'Page 30 is missing'
+          ast.parse(required.read_text(encoding='utf-8'))
+          app = Path('app.py').read_text(encoding='utf-8')
+          assert '🧬 Replicate-Aware Statistical Validation' in app
+          assert 'pages/30_Replicate_Aware_Statistical_Validation.py' in app
+          print('Replicate validation integration OK')
+          PY
+      - name: Commit validated integration marker
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          mkdir -p .scimantra
+          printf '%s\n' 'Replicate-Aware Statistical Validation: integrated and syntax-validated.' > .scimantra/replicate-validation-ready.txt
+          git add .scimantra/replicate-validation-ready.txt
+          git diff --cached --quiet || git commit -m 'Mark replicate validation as deployment-ready'
+          git push
