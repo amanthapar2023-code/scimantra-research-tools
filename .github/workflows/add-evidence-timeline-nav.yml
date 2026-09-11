@@ -1,0 +1,38 @@
+name: Add Research Evidence Timeline
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Integrate timeline navigation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+          app=Path('app.py'); t=app.read_text(encoding='utf-8')
+          marker='("🗄️ Research Artifact Vault","nav_artifacts")'
+          item='("🧭 Research Evidence Timeline","nav_timeline")'
+          if marker in t and item not in t:
+              t=t.replace(marker,marker+','+item)
+          anchor='elif section=="🗄️ Research Artifact Vault":'
+          route='elif section=="🧭 Research Evidence Timeline":\n    import runpy; runpy.run_path("pages/35_Research_Evidence_Timeline.py"); st.stop()\n\n'
+          if anchor in t and 'elif section=="🧭 Research Evidence Timeline":' not in t:
+              t=t.replace(anchor,route+anchor)
+          ast.parse(t); app.write_text(t,encoding='utf-8')
+          print('Evidence Timeline navigation validated.')
+          PY
+      - name: Commit and push safely
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app.py pages/35_Research_Evidence_Timeline.py
+          git diff --cached --quiet || git commit -m 'Add research evidence timeline'
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
