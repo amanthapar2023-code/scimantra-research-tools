@@ -1,0 +1,42 @@
+name: Connect Evidence Passport to Artifact Vault
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Integrate evidence persistence safely
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+          p=Path('pages/25_H2S_Reproducibility_Evidence_Passport.py')
+          t=p.read_text(encoding='utf-8')
+          t=t.replace('import streamlit as st\nfrom scipy import stats', 'import streamlit as st\nfrom scipy import stats\nfrom src.scimantra.cloud import client, configured, create_artifact, upload_project_file')
+          marker='st.title("🧾 H₂S Reproducibility & Evidence Passport")'
+          if 'Save Passport to Project Vault' not in t:
+              insert='''\n\ndef save_passport_to_vault(payload, json_bytes, workbook_bytes, md_bytes):\n    supa = client(st.secrets) if configured(st.secrets) else None\n    if not supa:\n        st.info("Connect Supabase Cloud to save this passport to a project.")\n        return\n    try:\n        user = supa.auth.get_user().user\n        projects = supa.table("projects").select("id,name").order("updated_at", desc=True).execute().data or []\n        if not projects:\n            st.warning("Create a Cloud Research Project first.")\n            return\n        names = {x["name"]: x["id"] for x in projects}\n        project_name = st.selectbox("Vault project", list(names), key="passport_vault_project")\n        if st.button("☁️ Save Passport to Project Vault", type="primary", key="save_passport_vault"):\n            for fname, data, typ, ctype in [\n                ("h2s_evidence_passport.json", json_bytes, "evidence", "application/json"),\n                ("h2s_evidence_passport.xlsx", workbook_bytes, "evidence", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),\n                ("h2s_evidence_passport.md", md_bytes, "evidence", "text/markdown")]:\n                digest = hashlib.sha256(data).hexdigest()\n                path = upload_project_file(supa, str(user.id), names[project_name], fname, data, ctype)\n                create_artifact(supa, str(user.id), names[project_name], fname, typ, path, ctype, len(data), digest, "H₂S Reproducibility & Evidence Passport", {"dataset_sha256": payload.get("dataset_sha256"), "passport_version": payload.get("passport_version"), "source": payload.get("source")})\n            st.success("Evidence Passport saved to the project Vault.")\n    except Exception as exc:\n        st.error(f"Vault save failed: {exc}")\n'''
+              t=t.replace(marker, marker+insert)
+          anchor='st.info("The SHA-256 fingerprint identifies the exact table representation analyzed in this session.'
+          if 'save_passport_to_vault(payload' not in t and anchor in t:
+              block='''\n\nif 'json_bytes' in locals() and 'summary' in locals():\n    save_passport_to_vault(payload, json_bytes, workbook(payload, evidence, summary), md.encode("utf-8"))\n'''
+              t=t.replace(anchor, block+'\n'+anchor)
+          t=t.replace('st.set_page_config(page_title="H₂S Evidence Passport", page_icon="🧾", layout="wide")\n','')
+          p.write_text(t,encoding='utf-8')
+          ast.parse(t)
+          print('Evidence Passport Vault integration validated.')
+          PY
+      - name: Commit and rebase safely
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add pages/25_H2S_Reproducibility_Evidence_Passport.py
+          git diff --cached --quiet || git commit -m 'Connect Evidence Passport to project artifact vault'
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
