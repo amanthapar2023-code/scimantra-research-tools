@@ -1,0 +1,43 @@
+name: Add Research Artifact Vault
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Artifact Vault
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+          cloud=Path('src/scimantra/cloud.py'); t=cloud.read_text()
+          additions='''\n\ndef list_artifacts(supa, project_id: str):\n    return supa.table("artifacts").select("*").eq("project_id", project_id).order("created_at", desc=True).execute().data or []\n\ndef create_artifact(supa, user_id: str, project_id: str, name: str, artifact_type: str, storage_path: str, content_type: str = "application/octet-stream", size_bytes: int = 0, sha256: str = "", source_tool: str = "", provenance: dict | None = None):\n    payload={"project_id":project_id,"owner_id":user_id,"name":name,"artifact_type":artifact_type,"storage_path":storage_path,"content_type":content_type,"size_bytes":int(size_bytes),"sha256":sha256,"source_tool":source_tool,"provenance_json":provenance or {}}\n    result=supa.table("artifacts").insert(payload).execute()\n    return result.data[0] if result.data else None\n\ndef delete_artifact(supa, artifact_id: str):\n    return supa.table("artifacts").delete().eq("id", artifact_id).execute()\n'''
+          if 'def list_artifacts(' not in t: cloud.write_text(t+additions)
+          schema=Path('supabase/schema.sql'); s=schema.read_text()
+          block='''\n\ncreate table if not exists public.artifacts (\n  id uuid primary key default gen_random_uuid(), project_id uuid not null references public.projects(id) on delete cascade,\n  owner_id uuid not null references auth.users(id) on delete cascade, name text not null, artifact_type text not null default 'other',\n  storage_path text not null default '', content_type text not null default 'application/octet-stream', size_bytes bigint not null default 0,\n  sha256 text not null default '', source_tool text not null default '', provenance_json jsonb not null default '{}'::jsonb,\n  created_at timestamptz not null default now()\n);\ncreate index if not exists artifacts_project_idx on public.artifacts(project_id);\nalter table public.artifacts enable row level security;\ndrop policy if exists artifacts_project_select on public.artifacts;\ndrop policy if exists artifacts_editor_insert on public.artifacts;\ndrop policy if exists artifacts_owner_delete on public.artifacts;\ncreate policy artifacts_project_select on public.artifacts for select using (public.is_project_member(project_id));\ncreate policy artifacts_editor_insert on public.artifacts for insert with check (owner_id=auth.uid() and public.is_project_editor(project_id));\ncreate policy artifacts_owner_delete on public.artifacts for delete using (owner_id=auth.uid() and public.is_project_editor(project_id));\n'''
+          if 'create table if not exists public.artifacts' not in s: schema.write_text(s+block)
+          page=Path('pages/34_Research_Artifact_Vault.py')
+          page.write_text('''from __future__ import annotations\nimport hashlib\nfrom datetime import datetime, timezone\nimport streamlit as st\nfrom src.scimantra.cloud import client, configured, list_artifacts, create_artifact, delete_artifact, upload_project_file, create_download_url\n\nst.title("🗄️ Research Artifact Vault")\nst.caption("Persistent project storage for datasets, analyses, figures, reports, manuscripts, evidence and submission packages.")\nsupa=client(st.secrets) if configured(st.secrets) else None\nuser=None\nif supa:\n    try: user=supa.auth.get_user().user\n    except Exception: pass\nif not supa or not user:\n    st.info("Connect and sign in to Supabase Cloud to use the persistent Artifact Vault.")\n    st.stop()\nprojects=supa.table("projects").select("*").order("updated_at",desc=True).execute().data or []\nif not projects: st.warning("Create a project in Cloud Project Workspace first."); st.stop()\nby_name={p["name"]:p for p in projects}; name=st.selectbox("Research project",list(by_name)); project=by_name[name]\narts=list_artifacts(supa,project["id"])\nc=st.columns(4); c[0].metric("Artifacts",len(arts)); c[1].metric("Figures",sum(a.get("artifact_type")=="figure" for a in arts)); c[2].metric("Reports",sum(a.get("artifact_type")=="report" for a in arts)); c[3].metric("Packages",sum(a.get("artifact_type")=="package" for a in arts))\nwith st.form("artifact_upload"):\n    f=st.file_uploader("Research output",type=["csv","xlsx","txt","pdf","png","jpg","jpeg","svg","zip","md","json"]); typ=st.selectbox("Artifact type",["dataset","analysis","figure","report","manuscript","evidence","submission","package","other"]); tool=st.text_input("Source tool",placeholder="e.g. H₂S Figure Engine"); note=st.text_area("Provenance note"); save=st.form_submit_button("⬆️ Save to project",type="primary")\nif save:\n    if not f: st.error("Choose a file first.")\n    else:\n        data=f.getvalue(); digest=hashlib.sha256(data).hexdigest(); path=upload_project_file(supa,str(user.id),project["id"],"artifacts/"+f.name,data,f.type or "application/octet-stream")\n        create_artifact(supa,str(user.id),project["id"],f.name,typ,path,f.type or "application/octet-stream",len(data),digest,tool,{"note":note,"uploaded_at":datetime.now(timezone.utc).isoformat()})\n        st.success("Artifact saved."); st.rerun()\nst.divider(); st.subheader("📚 Project artifacts")\nif not arts: st.info("No artifacts stored yet.")\nfor a in arts:\n    with st.container(border=True):\n        cols=st.columns([2.4,1,1,1]); cols[0].markdown(f"**{a.get('name','')}**  \\n\\n`{a.get('artifact_type','other')}` • {a.get('source_tool') or 'Manual upload'}"); cols[1].caption(f"{(a.get('size_bytes',0) or 0)/1024:.1f} KB")\n        url=create_download_url(supa,a.get("storage_path","")) if a.get("storage_path") else ""\n        if url: cols[2].link_button("Open",url,width="stretch")\n        if cols[3].button("Delete",key="del_"+a["id"],width="stretch"):\n            delete_artifact(supa,a["id"]); st.rerun()\nst.divider(); st.caption("🔐 Private project artifacts • SHA-256 fingerprinting • provenance metadata • no automatic alteration of research evidence.")\n''')
+          app=Path('app.py'); a=app.read_text(); marker='("⚙️ Automated Research Pipeline","nav_pipeline")'
+          if marker in a and '("🗄️ Research Artifact Vault","nav_artifacts")' not in a: a=a.replace(marker,marker+',("🗄️ Research Artifact Vault","nav_artifacts")')
+          anchor='elif section=="⚙️ Automated Research Pipeline":'
+          route='elif section=="🗄️ Research Artifact Vault":\n    import runpy; runpy.run_path("pages/34_Research_Artifact_Vault.py"); st.stop()\n\n'
+          if anchor in a and 'elif section=="🗄️ Research Artifact Vault":' not in a: a=a.replace(anchor,route+anchor)
+          app.write_text(a)
+          for p in [cloud,schema,page,app]: ast.parse(p.read_text()) if p.suffix=='.py' else None
+          print('Artifact Vault created and syntax validated.')
+          PY
+      - name: Commit and push safely
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app.py src/scimantra/cloud.py supabase/schema.sql pages/34_Research_Artifact_Vault.py
+          git diff --cached --quiet || git commit -m 'Add persistent Research Artifact Vault'
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
