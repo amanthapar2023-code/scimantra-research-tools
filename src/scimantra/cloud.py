@@ -128,10 +128,20 @@ def subscription(supa, user_id: str) -> dict[str, Any]:
 def list_artifacts(supa, project_id: str):
     return supa.table("artifacts").select("*").eq("project_id", project_id).order("created_at", desc=True).execute().data or []
 
+
 def create_artifact(supa, user_id: str, project_id: str, name: str, artifact_type: str, storage_path: str, content_type: str = "application/octet-stream", size_bytes: int = 0, sha256: str = "", source_tool: str = "", provenance: dict | None = None):
-    payload={"project_id":project_id,"owner_id":user_id,"name":name,"artifact_type":artifact_type,"storage_path":storage_path,"content_type":content_type,"size_bytes":int(size_bytes),"sha256":sha256,"source_tool":source_tool,"provenance_json":provenance or {}}
-    result=supa.table("artifacts").insert(payload).execute()
+    payload = {"project_id": project_id, "owner_id": user_id, "name": name, "artifact_type": artifact_type, "storage_path": storage_path, "content_type": content_type, "size_bytes": int(size_bytes), "sha256": sha256, "source_tool": source_tool, "provenance_json": provenance or {}}
+    result = supa.table("artifacts").insert(payload).execute()
     return result.data[0] if result.data else None
 
+
 def delete_artifact(supa, artifact_id: str):
+    """Delete the artifact record and its private storage object when present."""
+    result = supa.table("artifacts").select("storage_path").eq("id", artifact_id).maybe_single().execute()
+    path = (result.data or {}).get("storage_path", "")
+    if path:
+        try:
+            delete_project_file(supa, path)
+        except Exception:
+            pass
     return supa.table("artifacts").delete().eq("id", artifact_id).execute()
