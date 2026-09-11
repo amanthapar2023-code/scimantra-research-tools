@@ -9,10 +9,36 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 from scipy import stats
+from src.scimantra.cloud import client, configured, create_artifact, upload_project_file
 from src.scimantra.research_session import get_dataframe, metadata
 
-st.set_page_config(page_title="H₂S Evidence Passport", page_icon="🧾", layout="wide")
 st.title("🧾 H₂S Reproducibility & Evidence Passport")
+
+def save_passport_to_vault(payload, json_bytes, workbook_bytes, md_bytes):
+    supa = client(st.secrets) if configured(st.secrets) else None
+    if not supa:
+        st.info("Connect Supabase Cloud to save this passport to a project.")
+        return
+    try:
+        user = supa.auth.get_user().user
+        projects = supa.table("projects").select("id,name").order("updated_at", desc=True).execute().data or []
+        if not projects:
+            st.warning("Create a Cloud Research Project first.")
+            return
+        names = {x["name"]: x["id"] for x in projects}
+        project_name = st.selectbox("Vault project", list(names), key="passport_vault_project")
+        if st.button("☁️ Save Passport to Project Vault", type="primary", key="save_passport_vault"):
+            for fname, data, typ, ctype in [
+                ("h2s_evidence_passport.json", json_bytes, "evidence", "application/json"),
+                ("h2s_evidence_passport.xlsx", workbook_bytes, "evidence", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+                ("h2s_evidence_passport.md", md_bytes, "evidence", "text/markdown")]:
+                digest = hashlib.sha256(data).hexdigest()
+                path = upload_project_file(supa, str(user.id), names[project_name], fname, data, ctype)
+                create_artifact(supa, str(user.id), names[project_name], fname, typ, path, ctype, len(data), digest, "H₂S Reproducibility & Evidence Passport", {"dataset_sha256": payload.get("dataset_sha256"), "passport_version": payload.get("passport_version"), "source": payload.get("source")})
+            st.success("Evidence Passport saved to the project Vault.")
+    except Exception as exc:
+        st.error(f"Vault save failed: {exc}")
+
 st.caption("A machine-readable audit trail connecting a dataset to its calculations, analysis decisions, statistics and manuscript-ready evidence.")
 
 
