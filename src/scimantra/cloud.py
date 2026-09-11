@@ -1,9 +1,8 @@
 """Optional Supabase integration for SciMantra.
 
 The app remains usable without Supabase configuration. When configured,
-these helpers provide authenticated profile/project/subscription persistence.
-The Supabase client uses the publishable/anon key only; privileged billing
-webhook updates must happen in a trusted backend with a service role.
+these helpers provide authenticated profile/project/subscription persistence
+plus project-level research metadata.
 """
 
 from __future__ import annotations
@@ -68,6 +67,37 @@ def create_project(supa, user_id: str, name: str, status: str = "Planning", obje
 
 def save_project(supa, project: dict[str, Any]):
     return supa.table("projects").update({"name": project["name"], "status": project["status"], "objective": project.get("objective", ""), "notes": project.get("notes", "")}).eq("id", project["id"]).execute()
+
+
+def list_project_datasets(supa, project_id: str):
+    return supa.table("datasets").select("*").eq("project_id", project_id).order("created_at", desc=True).execute().data or []
+
+
+def register_dataset(supa, user_id: str, project_id: str, name: str, storage_path: str = "", row_count: int = 0, column_count: int = 0):
+    result = supa.table("datasets").insert({"project_id": project_id, "owner_id": user_id, "name": name, "storage_path": storage_path, "row_count": int(row_count), "column_count": int(column_count)}).execute()
+    return result.data[0] if result.data else None
+
+
+def list_experiments(supa, project_id: str):
+    return supa.table("experiments").select("*").eq("project_id", project_id).order("created_at", desc=True).execute().data or []
+
+
+def create_experiment(supa, user_id: str, project_id: str, name: str, design: str = "", outcome: str = "", status: str = "Planned"):
+    result = supa.table("experiments").insert({"project_id": project_id, "owner_id": user_id, "name": name, "design": design, "outcome": outcome, "status": status}).execute()
+    return result.data[0] if result.data else None
+
+
+def list_milestones(supa, project_id: str):
+    return supa.table("milestones").select("*").eq("project_id", project_id).order("due_date", desc=False).execute().data or []
+
+
+def create_milestone(supa, user_id: str, project_id: str, title: str, due_date: str | None = None):
+    result = supa.table("milestones").insert({"project_id": project_id, "owner_id": user_id, "title": title, "due_date": due_date}).execute()
+    return result.data[0] if result.data else None
+
+
+def set_milestone_completed(supa, milestone_id: str, completed: bool):
+    return supa.table("milestones").update({"completed": bool(completed)}).eq("id", milestone_id).execute()
 
 
 def subscription(supa, user_id: str) -> dict[str, Any]:
