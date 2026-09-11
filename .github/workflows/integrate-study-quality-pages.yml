@@ -1,0 +1,58 @@
+name: Integrate Study Design and Quality Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch main navigation and routes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app.py')
+          s = p.read_text(encoding='utf-8')
+          nav_anchor = '("🧪 H₂S Publication Dashboard","nav_h2s_publication")'
+          additions = [
+              '("🧬 Replicate-Aware Statistical Validation","nav_replicate_validation")',
+              '("🔎 Research Data Quality Audit","nav_quality_audit")',
+              '("🧪 H₂S Study Design & Sample Size","nav_study_design")',
+          ]
+          if additions[1] not in s:
+              s = s.replace(nav_anchor, nav_anchor + ',' + ','.join(additions[1:]))
+          if additions[0] not in s:
+              s = s.replace('(\"🧪 H₂S Publication Dashboard\",\"nav_h2s_publication\")', additions[0] + ',(\"🧪 H₂S Publication Dashboard\",\"nav_h2s_publication\")')
+          route_anchor = 'elif section=="🧪 H₂S Publication Dashboard":'
+          routes = '''elif section=="🔎 Research Data Quality Audit":\n    import runpy; runpy.run_path("pages/31_Research_Data_Quality_Audit.py"); st.stop()\n\nelif section=="🧪 H₂S Study Design & Sample Size":\n    import runpy; runpy.run_path("pages/32_H2S_Study_Design_and_Sample_Size.py"); st.stop()\n\n'''
+          if 'pages/31_Research_Data_Quality_Audit.py' not in s:
+              s = s.replace(route_anchor, routes + route_anchor)
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Validate pages
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+          for n in [31,32]:
+              files=list(Path('pages').glob(f'{n}_*.py'))
+              assert files, f'Missing page {n}'
+              ast.parse(files[0].read_text(encoding='utf-8'))
+          ast.parse(Path('app.py').read_text(encoding='utf-8'))
+          app=Path('app.py').read_text(encoding='utf-8')
+          assert 'pages/31_Research_Data_Quality_Audit.py' in app
+          assert 'pages/32_H2S_Study_Design_and_Sample_Size.py' in app
+          print('Study design and quality integration validated')
+          PY
+      - name: Commit integration
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app.py
+          git diff --cached --quiet || git commit -m 'Integrate study design and data quality tools'
+          git push
