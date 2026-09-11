@@ -2,14 +2,15 @@ import pandas as pd
 import streamlit as st
 
 from src.scimantra.cloud import (
-    client, configured, current_user, create_experiment, create_milestone, create_project,
-    list_experiments, list_milestones, list_project_datasets, list_projects, load_profile,
-    register_dataset, save_profile, save_project, set_milestone_completed, subscription,
+    client, configured, current_user, create_download_url, create_experiment, create_milestone,
+    create_project, delete_project_file, list_experiments, list_milestones, list_project_datasets,
+    list_projects, load_profile, register_dataset, save_profile, save_project,
+    set_milestone_completed, subscription, upload_project_file,
 )
 
 st.set_page_config(page_title="SciMantra Cloud Workspace", page_icon="☁️", layout="wide")
 st.title("☁️ SciMantra Cloud Research Workspace")
-st.caption("Persistent project metadata for authenticated researchers — projects, datasets, experiments and milestones.")
+st.caption("Persistent project metadata and private research-file storage for authenticated researchers.")
 
 if not configured(st.secrets):
     st.info("Cloud mode is not configured. Use the Research Project Manager for session-only projects, or configure Supabase using supabase/schema.sql.")
@@ -67,7 +68,7 @@ m3.metric("Milestones", len(milestones))
 m4.metric("Completed", sum(bool(x.get("completed")) for x in milestones))
 
 st.divider()
-tabs = st.tabs(["📋 Overview", "📂 Datasets", "🧪 Experiments", "📅 Milestones", "👤 Profile"])
+tabs = st.tabs(["📋 Overview", "📂 Datasets & Files", "🧪 Experiments", "📅 Milestones", "👤 Profile"])
 
 with tabs[0]:
     st.subheader(project.get("name", "Cloud project"))
@@ -88,27 +89,53 @@ with tabs[0]:
             st.error(f"Could not save project: {exc}")
 
 with tabs[1]:
-    st.subheader("Dataset registry")
-    st.caption("This registry stores metadata. Raw research files should be placed in a private Supabase Storage bucket; the database does not store file bytes.")
-    with st.form("dataset_register"):
-        upload = st.file_uploader("Register CSV/XLSX dataset", type=["csv", "xlsx", "xls"])
-        storage_path = st.text_input("Private storage path (optional)", placeholder="projects/<project-id>/datasets/results.xlsx")
-        register = st.form_submit_button("Register dataset")
-    if register:
+    st.subheader("📂 Private research files")
+    st.caption("Files are stored in the private `research-files` bucket under your authenticated project path. Database records keep metadata and the storage path.")
+    with st.form("dataset_upload"):
+        upload = st.file_uploader("Upload research dataset", type=["csv", "xlsx", "xls", "txt", "pdf", "png", "jpg", "jpeg", "zip"])
+        upload_now = st.form_submit_button("☁️ Upload to private cloud storage", type="primary")
+    if upload_now:
         if upload is None:
-            st.error("Choose a dataset first.")
+            st.error("Choose a file first.")
         else:
             try:
-                df = pd.read_csv(upload) if upload.name.lower().endswith(".csv") else pd.read_excel(upload)
-                register_dataset(supa, user.id, selected, upload.name, storage_path.strip(), df.shape[0], df.shape[1])
-                st.success(f"Registered {upload.name} ({df.shape[0]:,} × {df.shape[1]:,}).")
+                raw = upload.getvalue()
+                if len(raw) > 50 * 1024 * 1024:
+                    raise ValueError("File exceeds the 50 MB application upload limit.")
+                content_type = upload.type or "application/octet-stream"
+                storage_path = upload_project_file(supa, user.id, selected, upload.name, raw, content_type)
+                rows = cols = 0
+                if upload.name.lower().endswith(".csv"):
+                    df = pd.read_csv(pd.io.common.BytesIO(raw))
+                    rows, cols = df.shape
+                elif upload.name.lower().endswith((".xlsx", ".xls")):
+                    df = pd.read_excel(pd.io.common.BytesIO(raw))
+                    rows, cols = df.shape
+                register_dataset(supa, user.id, selected, upload.name, storage_path, rows, cols)
+                st.success(f"Uploaded **{upload.name}** to private cloud storage.")
                 st.rerun()
             except Exception as exc:
-                st.error(f"Could not register dataset: {exc}")
+                st.error(f"Could not upload file: {exc}")
+
     if datasets:
         st.dataframe(pd.DataFrame(datasets), width="stretch", hide_index=True)
+        st.markdown("### Secure file access")
+        for item in datasets:
+            path = item.get("storage_path", "")
+            if not path:
+                continue
+            a, b = st.columns([4, 1])
+            a.write(f"**{item.get('name', 'File')}**  ·  {item.get('row_count', 0):,} rows × {item.get('column_count', 0):,} columns")
+            try:
+                signed = create_download_url(supa, path, 3600)
+                if signed:
+                    b.link_button("Open / download", signed)
+                else:
+                    b.caption("URL unavailable")
+            except Exception:
+                b.caption("Access unavailable")
     else:
-        st.info("No datasets registered for this project yet.")
+        st.info("No cloud files registered for this project yet.")
 
 with tabs[2]:
     st.subheader("Experiment registry")
@@ -150,10 +177,7 @@ with tabs[3]:
             except Exception as exc:
                 st.error(f"Could not save milestone: {exc}")
     for milestone in milestones:
-        done = st.checkbox(
-            f"{milestone.get('title', 'Milestone')} — {milestone.get('due_date') or 'No target date'}",
-            value=bool(milestone.get("completed")), key=f"cloud_milestone_{milestone['id']}",
-        )
+        done = st.checkbox(f"{milestone.get('title', 'Milestone')} — {milestone.get('due_date') or 'No target date'}", value=bool(milestone.get("completed")), key=f"cloud_milestone_{milestone['id']}")
         if done != bool(milestone.get("completed")):
             try:
                 set_milestone_completed(supa, milestone["id"], done)
@@ -177,5 +201,5 @@ with tabs[4]:
             st.error(f"Could not save profile: {exc}")
 
 st.divider()
-st.success("☁️ Persistent cloud project metadata is active for this authenticated session.")
-st.caption("Next storage layer: private object storage for raw datasets and generated research packages, with database metadata kept separate from file bytes.")
+st.success("☁️ Persistent cloud project metadata and private file storage are ready when Supabase is configured.")
+st.caption("Storage uses short-lived signed URLs rather than public file links. Raw research files remain separate from database metadata.")
