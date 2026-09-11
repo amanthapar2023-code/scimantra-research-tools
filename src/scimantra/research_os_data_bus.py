@@ -11,7 +11,7 @@ import json
 from typing import Any
 
 from .research_os_state import new_project, normalize_project, progress
-from .cross_tool_linkage import ensure_bus as ensure_link_bus, register_artifact as link_register_artifact, link_artifacts as link_artifacts_graph, audit_bus as audit_link_bus
+from .cross_tool_linkage import ensure_bus as ensure_link_bus, register_artifact as link_register_artifact, link_artifacts as link_artifacts_graph
 
 SCHEMA_VERSION = 1
 
@@ -23,17 +23,13 @@ def new_bus(project: dict[str, Any] | None = None) -> dict[str, Any]:
     return {"schema_version": SCHEMA_VERSION, "project": p, "artifacts": [], "links": [], "events": [], "provenance": [], "context": {}, "created_at": _now(), "updated_at": _now()}
 
 def ensure_bus(bus: dict[str, Any] | None = None) -> dict[str, Any]:
-    if not isinstance(bus, dict):
-        return new_bus()
+    if not isinstance(bus, dict): return new_bus()
     out = deepcopy(bus)
-    base = new_bus()
     for key in ("artifacts", "links", "events", "provenance"):
         if not isinstance(out.get(key), list): out[key] = []
     if not isinstance(out.get("context"), dict): out["context"] = {}
-    out["project"] = normalize_project(out.get("project"))
-    out["schema_version"] = SCHEMA_VERSION
-    out.setdefault("created_at", _now()); out["updated_at"] = _now()
-    return out
+    out["project"] = normalize_project(out.get("project")); out["schema_version"] = SCHEMA_VERSION
+    out.setdefault("created_at", _now()); out["updated_at"] = _now(); return out
 
 def upsert_project(bus: dict[str, Any], project: dict[str, Any]) -> dict[str, Any]:
     out = ensure_bus(bus); out["project"] = normalize_project(project); out["updated_at"] = _now(); return out
@@ -51,17 +47,14 @@ def link_artifacts(bus: dict[str, Any], source_id: str, target_id: str, link_typ
     out = ensure_bus(bus)
     ids = {a.get("id") for a in out["artifacts"]}
     if source_id not in ids or target_id not in ids: raise ValueError("Both artifacts must be registered on the bus before linking")
-    graph = ensure_link_bus({"artifacts": out["artifacts"], "links": out["links"]})
-    graph = link_register_artifact(graph, source_id, {"title": next(a["title"] for a in out["artifacts"] if a["id"] == source_id)})
-    graph = link_register_artifact(graph, target_id, {"title": next(a["title"] for a in out["artifacts"] if a["id"] == target_id)})
+    graph = ensure_link_bus({"artifacts": [], "links": out["links"]})
+    for a in out["artifacts"]:
+        graph = link_register_artifact(graph, a.get("id", ""), a.get("title", ""), a.get("type", "Other"), a.get("stage", ""), a.get("source_tool", ""), a)
     graph = link_artifacts_graph(graph, source_id, target_id, link_type, note)
-    out["links"] = graph.get("links", out["links"])
-    out["updated_at"] = _now(); return out
+    out["links"] = graph.get("links", out["links"]); out["updated_at"] = _now(); return out
 
 def record_event(bus: dict[str, Any], actor: str, action: str, entity_id: str = "", entity_type: str = "", details: str = "") -> dict[str, Any]:
-    out = ensure_bus(bus)
-    out["events"].append({"timestamp": _now(), "actor": actor.strip() or "Researcher", "action": action.strip() or "Updated", "entity_id": entity_id.strip(), "entity_type": entity_type.strip(), "details": details.strip()})
-    out["updated_at"] = _now(); return out
+    out = ensure_bus(bus); out["events"].append({"timestamp": _now(), "actor": actor.strip() or "Researcher", "action": action.strip() or "Updated", "entity_id": entity_id.strip(), "entity_type": entity_type.strip(), "details": details.strip()}); out["updated_at"] = _now(); return out
 
 def attach_provenance(bus: dict[str, Any], artifact_id: str, source: str = "", parent_id: str = "", status: str = "Not assessed", note: str = "") -> dict[str, Any]:
     out = ensure_bus(bus)
@@ -75,14 +68,11 @@ def attach_provenance(bus: dict[str, Any], artifact_id: str, source: str = "", p
 def audit_bus(bus: dict[str, Any]) -> dict[str, Any]:
     out = ensure_bus(bus); ids = [a.get("id") for a in out["artifacts"]]
     duplicates = sorted({x for x in ids if ids.count(x) > 1 and x})
-    link_issues = []
-    for link in out["links"]:
-        if link.get("source_id") not in ids or link.get("target_id") not in ids: link_issues.append(link)
+    link_issues = [x for x in out["links"] if x.get("source") not in ids or x.get("target") not in ids]
     prov_issues = [p for p in out["provenance"] if p.get("artifact_id") not in ids or (p.get("parent_id") and p.get("parent_id") not in ids)]
     return {"artifact_count": len(out["artifacts"]), "link_count": len(out["links"]), "event_count": len(out["events"]), "provenance_count": len(out["provenance"]), "duplicate_artifact_ids": duplicates, "broken_links": link_issues, "broken_provenance": prov_issues, "stage_progress": progress(out["project"]), "healthy": not duplicates and not link_issues and not prov_issues}
 
-def snapshot(bus: dict[str, Any]) -> str:
-    return json.dumps(ensure_bus(bus), indent=2, ensure_ascii=False)
+def snapshot(bus: dict[str, Any]) -> str: return json.dumps(ensure_bus(bus), indent=2, ensure_ascii=False)
 
 def load_snapshot(text: str) -> dict[str, Any]:
     try: value = json.loads(text)
