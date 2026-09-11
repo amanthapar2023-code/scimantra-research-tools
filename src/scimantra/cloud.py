@@ -1,8 +1,7 @@
 """Optional Supabase integration for SciMantra.
 
-The app remains usable without Supabase configuration. When configured,
-these helpers provide authenticated profile/project/subscription persistence
-plus project-level research metadata.
+The app remains usable without Supabase configuration. These helpers use only
+an authenticated Supabase client and are safe to omit when cloud mode is off.
 """
 
 from __future__ import annotations
@@ -13,6 +12,8 @@ try:
     from supabase import create_client
 except ImportError:  # pragma: no cover - optional dependency
     create_client = None
+
+DEFAULT_STORAGE_BUCKET = "research-files"
 
 
 def configured(secrets: Any) -> bool:
@@ -76,6 +77,25 @@ def list_project_datasets(supa, project_id: str):
 def register_dataset(supa, user_id: str, project_id: str, name: str, storage_path: str = "", row_count: int = 0, column_count: int = 0):
     result = supa.table("datasets").insert({"project_id": project_id, "owner_id": user_id, "name": name, "storage_path": storage_path, "row_count": int(row_count), "column_count": int(column_count)}).execute()
     return result.data[0] if result.data else None
+
+
+def upload_project_file(supa, user_id: str, project_id: str, filename: str, data: bytes, content_type: str = "application/octet-stream", bucket: str = DEFAULT_STORAGE_BUCKET) -> str:
+    """Upload to a private bucket under an authenticated user's project prefix."""
+    safe_name = filename.replace("/", "_").replace("\\", "_").strip() or "file.bin"
+    path = f"{user_id}/{project_id}/{safe_name}"
+    supa.storage.from_(bucket).upload(path, data, {"content-type": content_type, "upsert": "true"})
+    return path
+
+
+def create_download_url(supa, storage_path: str, expires_in: int = 3600, bucket: str = DEFAULT_STORAGE_BUCKET) -> str:
+    result = supa.storage.from_(bucket).create_signed_url(storage_path, expires_in)
+    if isinstance(result, dict):
+        return result.get("signedURL") or result.get("signedUrl") or ""
+    return getattr(result, "signed_url", "") or getattr(result, "signedURL", "") or ""
+
+
+def delete_project_file(supa, storage_path: str, bucket: str = DEFAULT_STORAGE_BUCKET):
+    return supa.storage.from_(bucket).remove([storage_path])
 
 
 def list_experiments(supa, project_id: str):
