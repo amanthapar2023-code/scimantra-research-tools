@@ -147,3 +147,20 @@ create policy research_files_select on storage.objects for select to authenticat
 create policy research_files_insert on storage.objects for insert to authenticated with check (bucket_id = 'research-files' and (storage.foldername(name))[1] = auth.uid()::text);
 create policy research_files_update on storage.objects for update to authenticated using (bucket_id = 'research-files' and (storage.foldername(name))[1] = auth.uid()::text) with check (bucket_id = 'research-files' and (storage.foldername(name))[1] = auth.uid()::text);
 create policy research_files_delete on storage.objects for delete to authenticated using (bucket_id = 'research-files' and (storage.foldername(name))[1] = auth.uid()::text);
+
+
+create table if not exists public.artifacts (
+  id uuid primary key default gen_random_uuid(), project_id uuid not null references public.projects(id) on delete cascade,
+  owner_id uuid not null references auth.users(id) on delete cascade, name text not null, artifact_type text not null default 'other',
+  storage_path text not null default '', content_type text not null default 'application/octet-stream', size_bytes bigint not null default 0,
+  sha256 text not null default '', source_tool text not null default '', provenance_json jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+create index if not exists artifacts_project_idx on public.artifacts(project_id);
+alter table public.artifacts enable row level security;
+drop policy if exists artifacts_project_select on public.artifacts;
+drop policy if exists artifacts_editor_insert on public.artifacts;
+drop policy if exists artifacts_owner_delete on public.artifacts;
+create policy artifacts_project_select on public.artifacts for select using (public.is_project_member(project_id));
+create policy artifacts_editor_insert on public.artifacts for insert with check (owner_id=auth.uid() and public.is_project_editor(project_id));
+create policy artifacts_owner_delete on public.artifacts for delete using (owner_id=auth.uid() and public.is_project_editor(project_id));
