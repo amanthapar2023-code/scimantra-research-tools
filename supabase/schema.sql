@@ -48,12 +48,10 @@ alter table public.experiments enable row level security;
 alter table public.milestones enable row level security;
 alter table public.subscriptions enable row level security;
 
-create or replace function public.is_project_member(p_project_id uuid) returns boolean
-language sql security definer set search_path = public stable as $$
+create or replace function public.is_project_member(p_project_id uuid) returns boolean language sql security definer set search_path = public stable as $$
   select exists (select 1 from public.project_members m where m.project_id = p_project_id and m.user_id = auth.uid());
 $$;
-create or replace function public.is_project_editor(p_project_id uuid) returns boolean
-language sql security definer set search_path = public stable as $$
+create or replace function public.is_project_editor(p_project_id uuid) returns boolean language sql security definer set search_path = public stable as $$
   select exists (select 1 from public.project_members m where m.project_id = p_project_id and m.user_id = auth.uid() and m.role in ('owner','editor'));
 $$;
 revoke all on function public.is_project_member(uuid) from public;
@@ -95,7 +93,7 @@ drop policy if exists experiments_owner_update on public.experiments;
 drop policy if exists experiments_owner_delete on public.experiments;
 create policy experiments_project_access on public.experiments for select using (exists (select 1 from public.projects p where p.id = project_id and (p.owner_id = auth.uid() or public.is_project_member(p.id))));
 create policy experiments_owner_insert on public.experiments for insert with check (owner_id = auth.uid() and public.is_project_editor(project_id));
-create policy experiments_owner_update on public.experiments for update using (owner_id = auth.uid() and public.is_project_editor(project_id)) with check (owner_id = auth.uid());
+create policy experiments_owner_update on public.experiments for update using (owner_id = auth.uid() and public.is_project_editor(project_id));
 create policy experiments_owner_delete on public.experiments for delete using (owner_id = auth.uid() and public.is_project_editor(project_id));
 
 drop policy if exists milestones_project_access on public.milestones;
@@ -104,7 +102,7 @@ drop policy if exists milestones_owner_update on public.milestones;
 drop policy if exists milestones_owner_delete on public.milestones;
 create policy milestones_project_access on public.milestones for select using (exists (select 1 from public.projects p where p.id = project_id and (p.owner_id = auth.uid() or public.is_project_member(p.id))));
 create policy milestones_owner_insert on public.milestones for insert with check (owner_id = auth.uid() and public.is_project_editor(project_id));
-create policy milestones_owner_update on public.milestones for update using (owner_id = auth.uid() and public.is_project_editor(project_id)) with check (owner_id = auth.uid());
+create policy milestones_owner_update on public.milestones for update using (owner_id = auth.uid() and public.is_project_editor(project_id));
 create policy milestones_owner_delete on public.milestones for delete using (owner_id = auth.uid() and public.is_project_editor(project_id));
 
 drop policy if exists subscription_self_select on public.subscriptions;
@@ -128,8 +126,6 @@ end;
 $$;
 drop trigger if exists projects_touch_updated_at on public.projects;
 create trigger projects_touch_updated_at before update on public.projects for each row execute procedure public.touch_project_updated_at();
-
-auto
 
 create or replace function public.handle_new_user() returns trigger language plpgsql security definer set search_path = public as $$
 begin
