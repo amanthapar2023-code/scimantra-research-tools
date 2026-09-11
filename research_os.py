@@ -1,5 +1,10 @@
-"""SciMantra Research OS — stable launchable research command center."""
+"""SciMantra Research OS — integrated research command center."""
 import streamlit as st
+import pandas as pd
+from src.scimantra.research_os_state import (
+    STAGE_NAMES, STATUS_VALUES, add_artifact, from_json, new_project, progress,
+    set_stage, to_json,
+)
 
 st.set_page_config(page_title="SciMantra Research OS", page_icon="🔬", layout="wide", initial_sidebar_state="expanded")
 
@@ -18,9 +23,27 @@ STAGES = [
     ("12", "Next Study", "Turn findings into the next research cycle", "🔄", "75_Research_Decision_Orchestrator"),
 ]
 
-if "os_project" not in st.session_state: st.session_state.os_project = "My Research Project"
-if "os_question" not in st.session_state: st.session_state.os_question = ""
-if "os_status" not in st.session_state: st.session_state.os_status = {name: "Not started" for _, name, _, _, _ in STAGES}
+if "os_project_data" not in st.session_state:
+    st.session_state.os_project_data = new_project()
+project = st.session_state.os_project_data
+
+# Keep the OS project synchronized with the launcher fields and make them visible
+# to specialist pages through Streamlit session state.
+with st.sidebar:
+    st.title("🔬 SciMantra")
+    st.caption("Research Operating System")
+    st.divider()
+    project_name = st.text_input("Project name", project["project"]["name"])
+    research_question = st.text_area("Central research question", project["project"]["question"], placeholder="What are you trying to discover?")
+    if project_name != project["project"]["name"] or research_question != project["project"]["question"]:
+        project["project"]["name"] = project_name.strip() or "My Research Project"
+        project["project"]["question"] = research_question.strip()
+        st.session_state.os_project_data = project
+        st.session_state.os_project = project["project"]["name"]
+        st.session_state.os_question = project["project"]["question"]
+        st.session_state.ri_title = project["project"]["name"]
+    st.divider()
+    st.success("Project state is shared across this Streamlit session. Export it before ending the session to preserve the current project snapshot.")
 
 st.markdown("""
 <style>
@@ -28,19 +51,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-with st.sidebar:
-    st.title("🔬 SciMantra")
-    st.caption("Research Operating System")
-    st.divider()
-    st.session_state.os_project = st.text_input("Project name", st.session_state.os_project)
-    st.session_state.os_question = st.text_area("Central research question", st.session_state.os_question, placeholder="What are you trying to discover?")
-    st.divider()
-    st.success("Start with Research Forge. No special navigation API is required on this launch page.")
+st.markdown("<div class='hero'><div class='eyebrow'>Integrated scientific workflow</div><h1>🔬 SciMantra Research OS</h1><p><b>From research idea to evidence, manuscript, peer-review challenge and the next study.</b><br>The OS now carries a shared project state and artifact registry while you work across specialist pages.</p></div>", unsafe_allow_html=True)
 
-st.markdown("<div class='hero'><div class='eyebrow'>Integrated scientific workflow</div><h1>🔬 SciMantra Research OS</h1><p><b>From research idea to evidence, manuscript, peer-review challenge and the next study.</b><br>Use the links below to enter each specialist workbench.</p></div>", unsafe_allow_html=True)
-
-# Plain internal links are deliberately used here instead of st.switch_page().
-# This keeps the root launch page robust across Streamlit Community Cloud versions.
 st.subheader("🚀 Start here")
 col1, col2, col3 = st.columns(3)
 with col1:
@@ -50,26 +62,77 @@ with col2:
     st.markdown("<div class='launch'><h3>📚 Literature Intelligence</h3><p>Retrieve and organize literature evidence for the research problem.</p></div>", unsafe_allow_html=True)
     st.markdown("[**Open Literature Intelligence →**](./52_Literature_Evidence_Retriever)")
 with col3:
-    st.markdown("<div class='launch'><h3>🗂️ Project Workspace</h3><p>Organize the complete research lifecycle and its outputs.</p></div>", unsafe_allow_html=True)
+    st.markdown("<div class='launch'><h3>🗂️ Project Workspace</h3><p>Organize the research lifecycle, outputs and project state.</p></div>", unsafe_allow_html=True)
     st.markdown("[**Open Project Workspace →**](./76_Unified_Research_Project_Workspace)")
 
-complete = sum(v == "Complete" for v in st.session_state.os_status.values())
-ready = sum(v == "Ready" for v in st.session_state.os_status.values())
-blocked = sum(v == "Blocked" for v in st.session_state.os_status.values())
-progress = round(100 * complete / len(STAGES))
+p = progress(project)
+completion = round(100 * p["complete"] / p["total"])
 m1,m2,m3,m4 = st.columns(4)
-m1.metric("Project completion", f"{progress}%"); m2.metric("Complete", complete); m3.metric("Ready", ready); m4.metric("Blocked", blocked)
-st.progress(progress / 100)
+m1.metric("Project completion", f"{completion}%")
+m2.metric("Complete", p["complete"])
+m3.metric("In progress", p["in_progress"])
+m4.metric("Blocked", p["blocked"])
+st.progress(completion / 100)
 
 st.subheader("Research lifecycle")
 cols = st.columns(4)
 for i,(num,name,desc,icon,slug) in enumerate(STAGES):
     with cols[i % 4]:
-        status = st.session_state.os_status[name]
+        status = project["stages"][name]["status"]
         st.markdown(f"<div class='card'><small><b>{num} · {status.upper()}</b></small><h3>{icon} {name}</h3><p>{desc}</p></div>", unsafe_allow_html=True)
-        new_status = st.selectbox("Status", ["Not started","In progress","Blocked","Ready","Complete"], index=["Not started","In progress","Blocked","Ready","Complete"].index(status), key=f"os_status_{num}", label_visibility="collapsed")
-        st.session_state.os_status[name] = new_status
+        new_status = st.selectbox("Status", STATUS_VALUES, index=STATUS_VALUES.index(status), key=f"os_status_{num}", label_visibility="collapsed")
+        if new_status != status:
+            project = set_stage(project, name, status=new_status)
+            st.session_state.os_project_data = project
         st.markdown(f"[Open {name} →](./{slug})")
+
+st.divider()
+st.subheader("🧩 Project data bus")
+left, right = st.columns([1.15, 1])
+with left:
+    st.markdown("**Register an output from any research stage**")
+    with st.form("artifact_form"):
+        a1, a2 = st.columns(2)
+        artifact_title = a1.text_input("Artifact title", placeholder="e.g., Literature evidence matrix")
+        artifact_type = a2.selectbox("Artifact type", ["Question", "Hypothesis", "Literature", "Dataset", "Analysis", "Result", "Figure", "Table", "Claim", "Protocol", "Manuscript", "Review", "Other"])
+        a3, a4 = st.columns(2)
+        artifact_stage = a3.selectbox("Research stage", STAGE_NAMES)
+        artifact_source = a4.text_input("Source / file / DOI", placeholder="Optional provenance anchor")
+        artifact_description = st.text_area("Description", placeholder="What does this artifact contain or establish?")
+        submitted = st.form_submit_button("➕ Add to project", type="primary")
+    if submitted:
+        try:
+            project = add_artifact(project, artifact_title, artifact_type, artifact_stage, artifact_source, artifact_description)
+            st.session_state.os_project_data = project
+            st.success(f"Added **{artifact_title.strip()}** to {artifact_stage}.")
+        except ValueError as exc:
+            st.error(str(exc))
+with right:
+    artifacts = project["artifacts"]
+    st.metric("Registered artifacts", len(artifacts))
+    if artifacts:
+        df = pd.DataFrame(artifacts)[["id", "title", "type", "stage", "source"]]
+        st.dataframe(df, use_container_width=True, hide_index=True)
+    else:
+        st.info("No project artifacts yet. Add the first output above.")
+
+st.divider()
+st.subheader("💾 Project snapshot")
+export_col, import_col = st.columns(2)
+with export_col:
+    st.download_button("⬇️ Export Research OS project JSON", to_json(project), "scimantra_research_os_project.json", "application/json", width="stretch")
+with import_col:
+    uploaded = st.file_uploader("Import a Research OS JSON snapshot", type=["json"], label_visibility="collapsed")
+    if uploaded is not None and st.button("Import snapshot", width="stretch"):
+        try:
+            imported = from_json(uploaded.getvalue().decode("utf-8"))
+            st.session_state.os_project_data = imported
+            st.session_state.os_project = imported["project"]["name"]
+            st.session_state.os_question = imported["project"]["question"]
+            st.success("Project snapshot imported. Reloading the OS state on this session.")
+            st.rerun()
+        except (UnicodeDecodeError, ValueError) as exc:
+            st.error(str(exc))
 
 st.divider()
 st.subheader("🛡️ Research OS control layer")
@@ -81,5 +144,5 @@ for i,(title,desc) in enumerate(controls):
 st.divider()
 st.subheader("Connected intelligence chain")
 st.markdown("**Literature → Evidence Matrix → Novelty → Research Gap → Research Forge → Experiment → Design Optimization → Pilot → Falsification → Causal/Bias Audit → Statistics → Robustness → Reproducibility → Provenance → Integrity → Claim Stress Test → Evidence Sufficiency → Generalizability → Mechanism → Prior Art → Peer Review → Decision → Next Study**")
-st.success("Research OS launch page is active. Begin with **Research Forge**.")
+st.success("Research OS is active. Start with Research Forge, then register important outputs in the project data bus.")
 st.caption("Decision support only. SciMantra does not certify scientific validity, novelty, causality, or publication acceptance.")
