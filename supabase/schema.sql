@@ -48,7 +48,6 @@ alter table public.experiments enable row level security;
 alter table public.milestones enable row level security;
 alter table public.subscriptions enable row level security;
 
--- SECURITY DEFINER helpers prevent recursive RLS checks on project_members.
 create or replace function public.is_project_member(p_project_id uuid) returns boolean
 language sql security definer set search_path = public stable as $$
   select exists (select 1 from public.project_members m where m.project_id = p_project_id and m.user_id = auth.uid());
@@ -62,7 +61,6 @@ revoke all on function public.is_project_editor(uuid) from public;
 grant execute on function public.is_project_member(uuid) to authenticated;
 grant execute on function public.is_project_editor(uuid) to authenticated;
 
--- Idempotent policy installation: drop then recreate.
 drop policy if exists profiles_self_select on public.profiles;
 drop policy if exists profiles_self_insert on public.profiles;
 drop policy if exists profiles_self_update on public.profiles;
@@ -82,30 +80,56 @@ drop policy if exists members_self_select on public.project_members;
 create policy members_owner_all on public.project_members for all using (exists (select 1 from public.projects p where p.id = project_id and p.owner_id = auth.uid())) with check (exists (select 1 from public.projects p where p.id = project_id and p.owner_id = auth.uid()));
 create policy members_self_select on public.project_members for select using (user_id = auth.uid());
 
--- Child tables: project owners/editors can insert/update/delete; members can read.
- drop policy if exists datasets_project_access on public.datasets;
- drop policy if exists datasets_owner_insert on public.datasets;
- create policy datasets_project_access on public.datasets for select using (exists (select 1 from public.projects p where p.id = project_id and (p.owner_id = auth.uid() or public.is_project_member(p.id))));
- create policy datasets_owner_insert on public.datasets for insert with check (owner_id = auth.uid() and public.is_project_editor(project_id));
- create policy datasets_owner_update on public.datasets for update using (owner_id = auth.uid() and public.is_project_editor(project_id)) with check (owner_id = auth.uid());
- create policy datasets_owner_delete on public.datasets for delete using (owner_id = auth.uid() and public.is_project_editor(project_id));
+drop policy if exists datasets_project_access on public.datasets;
+drop policy if exists datasets_owner_insert on public.datasets;
+drop policy if exists datasets_owner_update on public.datasets;
+drop policy if exists datasets_owner_delete on public.datasets;
+create policy datasets_project_access on public.datasets for select using (exists (select 1 from public.projects p where p.id = project_id and (p.owner_id = auth.uid() or public.is_project_member(p.id))));
+create policy datasets_owner_insert on public.datasets for insert with check (owner_id = auth.uid() and public.is_project_editor(project_id));
+create policy datasets_owner_update on public.datasets for update using (owner_id = auth.uid() and public.is_project_editor(project_id)) with check (owner_id = auth.uid());
+create policy datasets_owner_delete on public.datasets for delete using (owner_id = auth.uid() and public.is_project_editor(project_id));
 
- drop policy if exists experiments_project_access on public.experiments;
- drop policy if exists experiments_owner_insert on public.experiments;
- create policy experiments_project_access on public.experiments for select using (exists (select 1 from public.projects p where p.id = project_id and (p.owner_id = auth.uid() or public.is_project_member(p.id))));
- create policy experiments_owner_insert on public.experiments for insert with check (owner_id = auth.uid() and public.is_project_editor(project_id));
- create policy experiments_owner_update on public.experiments for update using (owner_id = auth.uid() and public.is_project_editor(project_id)) with check (owner_id = auth.uid());
- create policy experiments_owner_delete on public.experiments for delete using (owner_id = auth.uid() and public.is_project_editor(project_id));
+drop policy if exists experiments_project_access on public.experiments;
+drop policy if exists experiments_owner_insert on public.experiments;
+drop policy if exists experiments_owner_update on public.experiments;
+drop policy if exists experiments_owner_delete on public.experiments;
+create policy experiments_project_access on public.experiments for select using (exists (select 1 from public.projects p where p.id = project_id and (p.owner_id = auth.uid() or public.is_project_member(p.id))));
+create policy experiments_owner_insert on public.experiments for insert with check (owner_id = auth.uid() and public.is_project_editor(project_id));
+create policy experiments_owner_update on public.experiments for update using (owner_id = auth.uid() and public.is_project_editor(project_id)) with check (owner_id = auth.uid());
+create policy experiments_owner_delete on public.experiments for delete using (owner_id = auth.uid() and public.is_project_editor(project_id));
 
- drop policy if exists milestones_project_access on public.milestones;
- drop policy if exists milestones_owner_insert on public.milestones;
- create policy milestones_project_access on public.milestones for select using (exists (select 1 from public.projects p where p.id = project_id and (p.owner_id = auth.uid() or public.is_project_member(p.id))));
- create policy milestones_owner_insert on public.milestones for insert with check (owner_id = auth.uid() and public.is_project_editor(project_id));
- create policy milestones_owner_update on public.milestones for update using (owner_id = auth.uid() and public.is_project_editor(project_id)) with check (owner_id = auth.uid());
- create policy milestones_owner_delete on public.milestones for delete using (owner_id = auth.uid() and public.is_project_editor(project_id));
+drop policy if exists milestones_project_access on public.milestones;
+drop policy if exists milestones_owner_insert on public.milestones;
+drop policy if exists milestones_owner_update on public.milestones;
+drop policy if exists milestones_owner_delete on public.milestones;
+create policy milestones_project_access on public.milestones for select using (exists (select 1 from public.projects p where p.id = project_id and (p.owner_id = auth.uid() or public.is_project_member(p.id))));
+create policy milestones_owner_insert on public.milestones for insert with check (owner_id = auth.uid() and public.is_project_editor(project_id));
+create policy milestones_owner_update on public.milestones for update using (owner_id = auth.uid() and public.is_project_editor(project_id)) with check (owner_id = auth.uid());
+create policy milestones_owner_delete on public.milestones for delete using (owner_id = auth.uid() and public.is_project_editor(project_id));
 
 drop policy if exists subscription_self_select on public.subscriptions;
 create policy subscription_self_select on public.subscriptions for select using (auth.uid() = user_id);
+
+-- Every new cloud project automatically gives its creator an owner membership.
+create or replace function public.handle_new_project() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.project_members (project_id, user_id, role) values (new.id, new.owner_id, 'owner') on conflict (project_id, user_id) do update set role = 'owner';
+  return new;
+end;
+$$;
+drop trigger if exists on_project_created on public.projects;
+create trigger on_project_created after insert on public.projects for each row execute procedure public.handle_new_project();
+
+create or replace function public.touch_project_updated_at() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+drop trigger if exists projects_touch_updated_at on public.projects;
+create trigger projects_touch_updated_at before update on public.projects for each row execute procedure public.touch_project_updated_at();
+
+auto
 
 create or replace function public.handle_new_user() returns trigger language plpgsql security definer set search_path = public as $$
 begin
