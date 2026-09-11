@@ -1,0 +1,54 @@
+name: Integrate Research Pipeline Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Integrate pages 31-33 into custom navigation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+          app = Path('app.py')
+          text = app.read_text(encoding='utf-8')
+          additions = [
+              ('🔎 Research Data Quality Audit','nav_quality','pages/31_Research_Data_Quality_Audit.py'),
+              ('🧪 H₂S Study Design & Sample Size','nav_study_design','pages/32_H2S_Study_Design_and_Sample_Size.py'),
+              ('⚙️ Automated Research Pipeline','nav_pipeline','pages/33_Automated_Research_Pipeline.py'),
+          ]
+          marker = '("🧬 Replicate-Aware Statistical Validation","nav_replicate_validation")'
+          if marker in text:
+              for label,key,_ in additions:
+                  tup = f'("{label}","{key}")'
+                  if tup not in text:
+                      text = text.replace(marker, marker + ',' + tup)
+          routes = {
+              '🔎 Research Data Quality Audit':'pages/31_Research_Data_Quality_Audit.py',
+              '🧪 H₂S Study Design & Sample Size':'pages/32_H2S_Study_Design_and_Sample_Size.py',
+              '⚙️ Automated Research Pipeline':'pages/33_Automated_Research_Pipeline.py',
+          }
+          anchor = 'elif section=="🧬 Replicate-Aware Statistical Validation":'
+          if anchor in text:
+              block = '\n'.join([f'elif section=="{label}":\n    import runpy; runpy.run_path("{path}"); st.stop()' for label,path in routes.items()])
+              if 'elif section=="🔎 Research Data Quality Audit":' not in text:
+                  text = text.replace(anchor, block + '\n\n' + anchor)
+          app.write_text(text, encoding='utf-8')
+          for p in ['app.py'] + [x[2] for x in additions]:
+              ast.parse(Path(p).read_text(encoding='utf-8'))
+          print('Research pipeline pages 31-33 integrated and syntax validated.')
+          PY
+      - name: Commit integration
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app.py
+          git diff --cached --quiet || git commit -m 'Wire research pipeline pages into app navigation'
+          git push
