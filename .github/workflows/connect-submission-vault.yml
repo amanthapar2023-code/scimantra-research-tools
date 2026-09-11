@@ -1,0 +1,36 @@
+name: Connect Submission Packager to Artifact Vault
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add Vault persistence
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+          p=Path('pages/26_H2S_Journal_Submission_Packager.py')
+          t=p.read_text(encoding='utf-8')
+          t=t.replace('st.set_page_config(page_title="H₂S Journal Submission Packager", page_icon="📦", layout="wide")\n','')
+          if '☁️ Save submission package to Project Vault' not in t:
+              marker='st.warning("This tool organizes and audits submission readiness. It does not certify compliance with a journal\'s current author instructions and does not fabricate references, declarations, affiliations or experimental facts.")'
+              block='''\n\n# Optional cloud persistence for the final submission manifest and readiness record.\ntry:\n    from src.scimantra.cloud import client, configured, upload_project_file, create_artifact\n    import hashlib, zipfile\n    supa = client(st.secrets) if configured(st.secrets) else None\n    vault_user = supa.auth.get_user().user if supa else None\nexcept Exception:\n    supa = None\n    vault_user = None\n\nif supa and vault_user:\n    st.markdown("### ☁️ Project Artifact Vault")\n    projects = supa.table("projects").select("id,name").order("updated_at", desc=True).execute().data or []\n    if projects:\n        project_map={x["name"]:x for x in projects}\n        project_name=st.selectbox("Save submission record to", list(project_map), key="submission_vault_project")\n        if st.button("☁️ Save submission package to Project Vault", type="primary"):\n            package=io.BytesIO()\n            with zipfile.ZipFile(package,"w",zipfile.ZIP_DEFLATED) as z:\n                z.writestr("submission_manifest.json", manifest_json)\n                z.writestr("README.md", readme)\n                z.writestr("cover_letter.txt", cover)\n            data=package.getvalue(); digest=hashlib.sha256(data).hexdigest(); pid=project_map[project_name]["id"]\n            path=upload_project_file(supa,str(vault_user.id),pid,"submission/h2s_submission_package.zip",data,"application/zip")\n            create_artifact(supa,str(vault_user.id),pid,"h2s_submission_package.zip","submission",path,"application/zip",len(data),digest,"H₂S Journal Submission Packager",{"journal":journal,"title":title,"readiness_percent":round(progress*100,1),"evidence_percent":round(review_progress*100,1)})\n            st.success("Submission package saved to the project Artifact Vault.")\n\n'''
+              t=t.replace(marker, marker+block)
+          ast.parse(t); p.write_text(t,encoding='utf-8')
+          print('Submission Vault integration validated.')
+          PY
+      - name: Commit and push safely
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add pages/26_H2S_Journal_Submission_Packager.py
+          git diff --cached --quiet || git commit -m 'Connect submission packager to artifact vault'
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
