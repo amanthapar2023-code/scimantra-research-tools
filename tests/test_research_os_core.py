@@ -1,43 +1,18 @@
-"""Structural reliability tests for the SciMantra Research OS core engines.
-
-These tests validate data contracts, graph integrity, workflow state, and safe
-failure behavior. They do not attempt to certify scientific validity.
-"""
+"""Structural reliability tests for the SciMantra Research OS core engines."""
 from __future__ import annotations
 
 import json
-
 import pytest
 
 from scimantra.research_os_access import access_status
-from scimantra.research_os_data_bus import (
-    attach_provenance,
-    audit_bus,
-    link_artifacts,
-    new_bus,
-    register_artifact,
-)
-from scimantra.research_os_data_contract import audit as contract_audit
-from scimantra.research_os_data_contract import envelope, validate
-from scimantra.research_os_decision_memory import audit as memory_audit
-from scimantra.research_os_decision_memory import new_memory, record, search
+from scimantra.research_os_data_bus import attach_provenance, audit_bus, link_artifacts, new_bus, register_artifact
+from scimantra.research_os_data_contract import audit as contract_audit, envelope, validate
+from scimantra.research_os_decision_memory import audit as memory_audit, new_memory, record, search
 from scimantra.research_os_next_action import recommend
 from scimantra.research_os_output_registry import registry_audit, validate_output
 from scimantra.research_os_scientific_audit import actions, readiness, score
-from scimantra.research_os_state import (
-    add_artifact,
-    from_json,
-    new_project,
-    progress,
-    set_stage,
-    to_json,
-)
-from scimantra.research_os_sync import (
-    ensure_sync_state,
-    mark_dirty,
-    mark_synced,
-    new_sync_state,
-)
+from scimantra.research_os_state import add_artifact, from_json, new_project, progress, set_stage, to_json
+from scimantra.research_os_sync import ensure_sync_state, mark_dirty, mark_synced, new_sync_state
 
 
 def test_project_lifecycle_and_roundtrip() -> None:
@@ -51,7 +26,7 @@ def test_project_lifecycle_and_roundtrip() -> None:
     assert restored["artifacts"][0]["title"] == "Dataset"
 
 
-def test_project_rejects_invalid_stage_status_and_empty_artifact() -> None:
+def test_project_rejects_invalid_inputs() -> None:
     project = new_project()
     with pytest.raises(ValueError):
         set_stage(project, "No such stage", status="Complete")
@@ -78,34 +53,28 @@ def test_data_contract_validation_and_duplicate_audit() -> None:
     item = envelope("p1", "a1", "Dataset", "Data", "Test Tool", "Active", {"n": 1})
     assert validate(item) == []
     assert validate({"project_id": "p1"})
-    audit = contract_audit([item, dict(item)])
-    assert audit["duplicates"]
+    assert contract_audit([item, dict(item)])["duplicates"]
 
 
 def test_scientific_audit_score_readiness_and_actions() -> None:
-    levels = {
-        "Evidence sufficiency": "Strong",
-        "Claim stress test": "Adequate",
-        "Causal validity": "Needs work",
-    }
+    levels = {"Evidence sufficiency": "Strong", "Claim stress test": "Adequate", "Causal validity": "Needs work"}
     result = score(levels)
     assert 0 <= result["score"] <= 100
-    state = readiness(result)
-    assert "classification" in state
+    assert "classification" in readiness(result)
     assert actions(levels)
 
 
 def test_decision_memory_search_and_audit() -> None:
     memory = new_memory()
-    record(memory, "Decision", "Use method A", "Successful", tags=["method"])
-    record(memory, "Lesson", "Document controls", "Needs follow-up", tags=["controls"])
+    memory = record(memory, "m1", "Decision", "Use method A", "Rationale", "Successful", tags=["method"])
+    memory = record(memory, "m2", "Lesson", "Document controls", "Rationale", "Needs follow-up", tags=["controls"])
     assert len(search(memory, "method")) == 1
     assert memory_audit(memory)["duplicates"] == []
 
 
 def test_next_action_engine_returns_prioritized_actions() -> None:
     run = {"steps": [{"id": "s1", "name": "Literature", "status": "Not started", "dependencies": []}]}
-    result = recommend(run, new_bus("p1", "Project"), [{"severity": "high", "message": "Missing evidence"}])
+    result = recommend(run, new_bus("p1", "Project"), [{"level": "critical", "signal": "Missing evidence"}])
     assert result
     assert result[0]["priority"] in {"Critical", "High", "Medium", "Low"}
 
