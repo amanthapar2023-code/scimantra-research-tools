@@ -66,12 +66,42 @@ if questions:
         st.session_state.forge_hypotheses = generate_hypotheses(
             {"Research question": edited}, primary, outcome, comparator, secondary, system, conditions
         )
+        st.session_state.forge_handoff = {
+            "question": edited,
+            "hypothesis": "",
+            "primary": primary,
+            "outcome": outcome,
+            "comparator": comparator,
+            "secondary": secondary,
+            "system": system,
+            "conditions": conditions,
+            "falsifier": "",
+        }
 
     hypotheses = st.session_state.get("forge_hypotheses", [])
     if hypotheses:
         st.subheader("4. Falsifiable hypothesis candidates")
         st.dataframe(pd.DataFrame(hypotheses), use_container_width=True, hide_index=True)
         st.warning("These are testable planning candidates, not predictions of what your experiment will find. Pre-specify outcomes, analysis, and falsification criteria before interpreting results.")
+
+        directional = next((h for h in hypotheses if h.get("Level") == "Directional"), hypotheses[0])
+        selected_hypothesis = st.text_area("Hypothesis to carry forward", value=directional.get("Hypothesis", ""), key="forge_selected_hypothesis")
+        selected_falsifier = st.text_area("Falsifier to carry forward", value=directional.get("Falsifier", ""), key="forge_selected_falsifier")
+
+        if st.button("➡️ Send this plan to Experiment Architect", type="primary"):
+            st.session_state.forge_handoff = {
+                "question": edited,
+                "hypothesis": selected_hypothesis,
+                "primary": primary,
+                "outcome": outcome,
+                "comparator": comparator,
+                "secondary": secondary,
+                "system": system,
+                "conditions": conditions,
+                "falsifier": selected_falsifier,
+            }
+            st.success("Plan prepared. Open Experiment Architect and click 'Import from Research Forge' to continue without re-entering these fields.")
+
         st.download_button("⬇️ Export question + hypothesis plan", export_forge(questions, hypotheses), "research_question_hypothesis_plan.md", "text/markdown")
 
 st.info("Integrity rule: SciMantra does not manufacture expected results. A hypothesis is useful here only when its variables, comparator, outcome, system, conditions, and potential falsifier can be defined and checked against the study design.")
