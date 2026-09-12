@@ -1,11 +1,4 @@
-"""SciMantra Research OS launcher.
-
-This launcher intentionally lives outside the repository-level ``pages/`` directory.
-The main SciMantra app still uses ``pages/`` for its legacy multipage application,
-while Research OS uses Streamlit's Page/navigation API. Keeping this launcher in a
-separate directory prevents Streamlit Cloud from auto-discovering the legacy pages
-before the Research OS router initializes.
-"""
+"""SciMantra Research OS launcher."""
 from pathlib import Path
 import re
 import sys
@@ -37,6 +30,8 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+PAGE_OBJECTS = {}
+
 
 def _page_title(path: Path) -> str:
     name = re.sub(r"^\d+_", "", path.stem)
@@ -44,13 +39,22 @@ def _page_title(path: Path) -> str:
 
 
 def _page_source(path: Path) -> str:
-    # st.Page paths are relative to this entrypoint. The legacy pages directory is
-    # a sibling of APP_DIR, so construct the relative path explicitly.
     return str(Path("..") / path.relative_to(ROOT))
 
 
 def _url_path(path: Path) -> str:
     return re.sub(r"[^a-z0-9_-]+", "-", path.stem.lower()).strip("-")
+
+
+def _make_page(path: Path, icon: str):
+    page = st.Page(
+        _page_source(path),
+        title=_page_title(path),
+        icon=icon,
+        url_path=_url_path(path),
+    )
+    PAGE_OBJECTS[path.stem] = page
+    return page
 
 
 def _build_pages():
@@ -63,16 +67,10 @@ def _build_pages():
     return {
         "SciMantra Research OS": [
             st.Page(_home, title="Research OS Home", icon="🔬", url_path="research-os-home", default=True),
-            *[
-                st.Page(_page_source(p), title=_page_title(p), icon="🧠", url_path=_url_path(p))
-                for p in research_os
-            ],
+            *[_make_page(p, "🧠") for p in research_os],
         ],
         "Research Tools": [
-            *[
-                st.Page(_page_source(p), title=_page_title(p), icon="🧪", url_path=_url_path(p))
-                for p in core
-            ],
+            *[_make_page(p, "🧪") for p in core],
         ],
     }
 
@@ -123,13 +121,12 @@ def _home():
         (cols[4], "⚙️ Automation", "See what to do next", "81_Research_Workflow_Automation"),
         (cols[5], "🧭 Next Action", "Prioritize the next research move", "106_Research_OS_Next_Action_Engine"),
     ]
-    page_map = {p.stem: p for p in PAGES_DIR.glob("*.py")}
     for col, title, desc, stem in cards:
         with col:
             st.markdown(f"**{title}**  \n{desc}")
-            page = page_map.get(stem)
+            page = PAGE_OBJECTS.get(stem)
             if page:
-                st.page_link(_url_path(page), label="Open →")
+                st.page_link(page, label="Open →")
 
     p = progress(project)
     completion = round(100 * p["complete"] / p["total"])
@@ -152,9 +149,9 @@ def _home():
             if new != status:
                 project = set_stage(project, name, status=new)
                 st.session_state.os_project_data = project
-            page = page_map.get(stem)
+            page = PAGE_OBJECTS.get(stem)
             if page:
-                st.page_link(_url_path(page), label="Open workbench →")
+                st.page_link(page, label="Open workbench →")
 
     st.divider()
     st.subheader("🧩 Project data bus")
