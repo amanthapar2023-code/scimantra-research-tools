@@ -2,22 +2,16 @@
 import json
 import streamlit as st
 
+from scimantra.research_os_access import owned_projects
 from scimantra.research_os_data_bus import ensure_bus
 from scimantra.research_os_sync import (
-    DEFAULT_AUTOSAVE_SECONDS,
-    export_sync_state,
-    ensure_sync_state,
-    latest_cloud_metadata,
-    load_cloud,
-    mark_dirty,
-    new_sync_state,
-    save_cloud,
-    sync_status,
+    DEFAULT_AUTOSAVE_SECONDS, export_sync_state, ensure_sync_state, latest_cloud_metadata,
+    load_cloud, mark_dirty, new_sync_state, save_cloud, sync_status,
 )
 
 st.set_page_config(page_title="Research OS Persistent State", page_icon="☁️", layout="wide")
 st.title("☁️ Research OS — Persistent State & Sync")
-st.caption("Phase 115 · session ↔ cloud synchronization without changing the existing database schema")
+st.caption("Phase 115 · session ↔ cloud synchronization with Phase 116 project isolation")
 
 if "ros_bus" not in st.session_state:
     st.session_state.ros_bus = ensure_bus({})
@@ -25,9 +19,21 @@ if "ros_sync" not in st.session_state:
     st.session_state.ros_sync = new_sync_state()
 st.session_state.ros_sync = ensure_sync_state(st.session_state.ros_sync)
 
+secrets = st.secrets
+projects = owned_projects(secrets)
+project_options = [(str(p.get("id", "")), str(p.get("name", "Untitled project"))) for p in projects if p.get("id")]
+
 with st.sidebar:
     st.header("Project sync")
-    project_id = st.text_input("Supabase project ID", st.session_state.ros_sync.get("project_id", ""))
+    if project_options:
+        labels = [f"{name} · {pid}" for pid, name in project_options]
+        current_id = st.session_state.ros_sync.get("project_id", "")
+        current_index = next((i for i, (pid, _) in enumerate(project_options) if pid == current_id), 0)
+        selected = st.selectbox("Owned Supabase project", labels, index=current_index)
+        project_id = project_options[labels.index(selected)][0]
+    else:
+        project_id = ""
+        st.info("No authenticated owned project is available.")
     if project_id != st.session_state.ros_sync.get("project_id", ""):
         st.session_state.ros_sync = mark_dirty(st.session_state.ros_sync, project_id)
     autosave = st.checkbox("Enable autosave", value=st.session_state.ros_sync.get("autosave_enabled", False))
@@ -35,7 +41,6 @@ with st.sidebar:
     st.session_state.ros_sync["autosave_enabled"] = autosave
     st.session_state.ros_sync["autosave_interval_seconds"] = int(interval)
 
-secrets = st.secrets
 status = sync_status(secrets, st.session_state.ros_sync, project_id)
 cloud = status.get("cloud", {})
 cloud_snapshot = status.get("cloud_snapshot", {})
@@ -49,12 +54,12 @@ c4.metric("Conflict", "Resolve" if status.get("conflict") else "None")
 if not cloud.get("ready"):
     st.warning(cloud.get("reason", "Cloud persistence is unavailable."))
 else:
-    st.success("Authenticated cloud persistence is available for this project.")
+    st.success("Authenticated cloud persistence is available for the selected owned project.")
 
 st.subheader("🔄 Synchronization controls")
 a, b, c = st.columns(3)
 with a:
-    if st.button("☁️ Load latest cloud state", use_container_width=True):
+    if st.button("☁️ Load latest cloud state", use_container_width=True, disabled=not project_id):
         try:
             bus, new_state = load_cloud(secrets, st.session_state.ros_sync, project_id)
             if bus is None:
@@ -66,7 +71,7 @@ with a:
         except Exception as exc:
             st.error(f"Cloud load failed: {exc}")
 with b:
-    if st.button("💾 Save local state now", use_container_width=True):
+    if st.button("💾 Save local state now", use_container_width=True, disabled=not project_id):
         try:
             artifact, new_state = save_cloud(secrets, st.session_state.ros_sync, project_id, st.session_state.ros_bus)
             st.session_state.ros_sync = new_state
@@ -93,12 +98,11 @@ else:
     st.info("No snapshot found for the selected project.")
 
 st.subheader("🧪 Local Research OS bus")
-st.caption("This is the canonical in-session bus used by the Research OS integration layer. Editing below is intentionally JSON-only and should be used for controlled recovery/import workflows.")
+st.caption("Canonical in-session bus. JSON editing is intended for controlled recovery/import workflows.")
 local_text = st.text_area("Local bus JSON", value=json.dumps(st.session_state.ros_bus, ensure_ascii=False, indent=2), height=300)
 if st.button("Apply local bus JSON"):
     try:
-        candidate = json.loads(local_text)
-        st.session_state.ros_bus = ensure_bus(candidate)
+        st.session_state.ros_bus = ensure_bus(json.loads(local_text))
         st.session_state.ros_sync = mark_dirty(st.session_state.ros_sync, project_id)
         st.success("Local bus updated and marked dirty.")
     except Exception as exc:
@@ -110,12 +114,7 @@ if cloud.get("ready") and project_id:
         from scimantra.research_os_persistence import list_snapshots
         rows = list_snapshots(secrets, project_id)
         if rows:
-            st.dataframe([{
-                "saved_at": r.get("saved_at", ""),
-                "artifact_id": (r.get("artifact") or {}).get("id", ""),
-                "artifacts": len((r.get("bus") or {}).get("artifacts", {})),
-                "events": len((r.get("bus") or {}).get("events", [])),
-            } for r in rows], use_container_width=True, hide_index=True)
+            st.dataframe([{"saved_at": r.get("saved_at", ""), "artifact_id": (r.get("artifact") or {}).get("id", ""), "artifacts": len((r.get("bus") or {}).get("artifacts", {})), "events": len((r.get("bus") or {}).get("events", []))} for r in rows], use_container_width=True, hide_index=True)
         else:
             st.info("No saved snapshots yet.")
     except Exception as exc:
@@ -125,4 +124,4 @@ with st.expander("Export synchronization metadata"):
     st.download_button("Download sync state JSON", export_sync_state(st.session_state.ros_sync), "research_os_sync_state.json", "application/json")
 
 st.divider()
-st.warning("Synchronization stores and restores researcher-controlled project state. It does not validate scientific correctness, resolve scientific disagreements automatically, or certify results. Autosave is represented as a safe configuration flag here; automatic background writes should be wired only after deployment-specific rerun/session behavior is verified.")
+st.warning("Cloud project choices are restricted to projects returned for the authenticated user. Synchronization does not validate scientific correctness, resolve scientific disagreements automatically, or certify results.")
