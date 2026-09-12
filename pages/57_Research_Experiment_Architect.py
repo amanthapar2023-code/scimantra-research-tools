@@ -4,6 +4,7 @@ from src.scimantra.experiment_architect import (
     DESIGN_FIELDS, architect, audit_architecture, architecture_score,
     design_completion, design_specification, reviewer_challenges, export_architecture,
 )
+from src.scimantra.design_validator import validate_design, validation_summary, export_validation
 
 st.set_page_config(page_title="Research Experiment Architect | SciMantra", page_icon="🧪", layout="wide")
 st.title("🧪 Research Experiment Architect")
@@ -107,12 +108,41 @@ if plan:
         blockers = ", ".join(completion["blocking_checks"])
         st.warning(f"Design is not ready for analysis planning. Resolve: {blockers}.")
 
-    st.subheader("5. Reviewer stress test")
+    st.divider()
+    st.subheader("5. Evidence-backed design validation")
+    st.caption("A conservative cross-field audit for unsupported assumptions, missing controls, operational definitions, confounding, falsification, and reproducibility. It does not prove that a design is scientifically valid.")
+    if st.button("🛡️ Validate design before experiment", type="primary"):
+        validation_rows = validate_design(plan)
+        st.session_state.design_validation = validation_rows
+        st.session_state.design_validation_summary = validation_summary(validation_rows)
+
+    validation_rows = st.session_state.get("design_validation", [])
+    validation = st.session_state.get("design_validation_summary", {})
+    if validation_rows:
+        va, vb, vc = st.columns(3)
+        va.metric("Validation score", f"{validation.get('score', 0)}%")
+        vb.metric("Blockers", len(validation.get("blockers", [])))
+        vc.metric("Items for review", len(validation.get("reviews", [])) + len(validation.get("warnings", [])))
+        state = validation.get("state", "")
+        if state == "Design-ready for next planning stage":
+            st.success("✅ No blocking validation findings detected. Confirm the design with field-specific expertise before data collection.")
+        elif state == "Blocked":
+            st.error("⛔ Design validation is blocked. Resolve the critical findings below before treating this as ready for the next stage.")
+        else:
+            st.warning("⚠️ Design validation found items that need researcher review before proceeding.")
+        st.dataframe(pd.DataFrame(validation_rows), use_container_width=True, hide_index=True)
+        if validation.get("blockers"):
+            st.markdown("**Fix before proceeding**")
+            for item in validation["blockers"]:
+                st.write(f"• {item}")
+        st.download_button("⬇️ Export design validation report", export_validation(plan, validation_rows, validation), "phase123_design_validation.md", "text/markdown")
+
+    st.subheader("6. Reviewer stress test")
     st.caption("Tick a concern when it still needs resolution; ticking a box does not mark the design as solved.")
     for item in reviewer_challenges(plan):
         st.checkbox(item, key=f"exp_review_{item}")
 
-    st.subheader("6. Updated blueprint")
+    st.subheader("7. Updated blueprint")
     st.download_button("⬇️ Export complete experiment blueprint", export_architecture(plan, audit), "research_experiment_architecture.md", "text/markdown")
 
 st.info("Integrity rule: the architect does not invent sample sizes, expected results, statistical significance, or causal conclusions. Complete the design with field-specific expertise and pre-specify decisions where appropriate.")
