@@ -30,11 +30,15 @@ if questions:
     st.dataframe(pd.DataFrame(audit), use_container_width=True, hide_index=True)
 
     c1, c2, c3 = st.columns(3)
-    primary = c1.text_input("Primary factor / exposure", value="the pre-specified factor")
-    outcome = c2.text_input("Primary outcome", value="the primary outcome")
-    comparator = c3.text_input("Comparator", value="the comparator")
+    primary = c1.text_input("Primary factor / exposure", placeholder="e.g., VOC concentration")
+    outcome = c2.text_input("Primary outcome", placeholder="e.g., percentage removal of target VOC")
+    comparator = c3.text_input("Comparator", placeholder="e.g., abiotic control without microbial treatment")
 
-    if st.button("🧪 Forge hypothesis candidates"):
+    ready = bool(primary.strip() and outcome.strip())
+    if not ready:
+        st.caption("Enter at least the primary factor and primary outcome before generating hypotheses. Add a comparator when the study has a reference condition.")
+
+    if st.button("🧪 Forge hypothesis candidates", disabled=not ready):
         st.session_state.forge_hypotheses = generate_hypotheses({"Research question": edited}, primary, outcome, comparator)
 
     hypotheses = st.session_state.get("forge_hypotheses", [])
