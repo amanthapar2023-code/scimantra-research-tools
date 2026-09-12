@@ -28,67 +28,93 @@ def generate_hypotheses(
     primary_variable: str = "",
     outcome: str = "",
     comparator: str = "",
+    secondary_factor: str = "",
+    system: str = "",
+    conditions: str = "",
 ) -> List[Dict]:
-    """Generate explicit, falsifiable planning candidates from user-defined variables.
-
-    The engine deliberately refuses placeholder variables and does not invent effect
-    sizes or expected results. The directional statement is phrased as a contrast
-    when a comparator is supplied, while the null states the corresponding absence
-    of evidence under the pre-specified analysis.
-    """
-    q = _clean(question.get("Research question", ""))
+    """Generate explicit, falsifiable planning candidates from researcher-defined variables."""
     factor = _label(primary_variable, "the primary factor")
     endpoint = _label(outcome, "the primary outcome")
     reference = _clean(comparator)
+    context = _clean(conditions) or _clean(system) or "the defined study conditions"
 
+    prefix = f"Under {context}, "
     if reference:
-        directional = (
-            f"Under the defined study conditions, changing {factor} will be associated "
-            f"with a difference in {endpoint} compared with {reference}."
-        )
-        null = (
-            f"Under the defined study conditions, changing {factor} will not be associated "
-            f"with a difference in {endpoint} compared with {reference}."
-        )
-        directional_falsifier = (
-            f"The pre-specified analysis shows no difference in {endpoint} between the "
-            f"defined {factor} conditions and {reference}, within the study's decision criteria."
-        )
-        null_falsifier = (
-            f"The pre-specified analysis shows a difference in {endpoint} between the "
-            f"defined {factor} conditions and {reference}, meeting the study's decision criteria."
-        )
+        directional = f"{prefix}changing {factor} will be associated with a difference in {endpoint} compared with {reference}."
+        null = f"{prefix}changing {factor} will not be associated with a difference in {endpoint} compared with {reference}."
+        directional_falsifier = f"The pre-specified analysis shows no difference in {endpoint} between the defined {factor} conditions and {reference}, within the study's decision criteria."
+        null_falsifier = f"The pre-specified analysis shows a difference in {endpoint} between the defined {factor} conditions and {reference}, meeting the study's decision criteria."
     else:
-        directional = (
-            f"Under the defined study conditions, changing {factor} will be associated "
-            f"with a difference in {endpoint}."
-        )
-        null = (
-            f"Under the defined study conditions, changing {factor} will not be associated "
-            f"with a difference in {endpoint}."
-        )
-        directional_falsifier = (
-            f"The pre-specified analysis shows no difference in {endpoint} across the defined {factor} conditions."
-        )
-        null_falsifier = (
-            f"The pre-specified analysis shows a difference in {endpoint} across the defined {factor} conditions, meeting the study's decision criteria."
-        )
+        directional = f"{prefix}changing {factor} will be associated with a difference in {endpoint}."
+        null = f"{prefix}changing {factor} will not be associated with a difference in {endpoint}."
+        directional_falsifier = f"The pre-specified analysis shows no difference in {endpoint} across the defined {factor} conditions."
+        null_falsifier = f"The pre-specified analysis shows a difference in {endpoint} across the defined {factor} conditions, meeting the study's decision criteria."
 
-    # Interaction is only meaningful if the researcher identifies a second factor or context.
-    interaction = (
-        f"The association between {factor} and {endpoint} will differ across a pre-specified "
-        "second factor or experimental context."
-    )
+    if secondary_factor:
+        interaction = f"The association between {factor} and {endpoint} will differ across the pre-specified secondary factor, {secondary_factor}."
+    else:
+        interaction = f"The association between {factor} and {endpoint} will differ across a pre-specified second factor or experimental context."
 
     return [
         {"Level": "Directional", "Hypothesis": directional, "Falsifier": directional_falsifier},
         {"Level": "Null", "Hypothesis": null, "Falsifier": null_falsifier},
-        {
-            "Level": "Interaction",
-            "Hypothesis": interaction,
-            "Falsifier": "No credible interaction is observed under the pre-specified model and decision criteria.",
-        },
+        {"Level": "Interaction", "Hypothesis": interaction, "Falsifier": "No credible interaction is observed under the pre-specified model and decision criteria."},
     ]
+
+
+def audit_design(primary_variable: str, outcome: str, comparator: str, secondary_factor: str = "", system: str = "", conditions: str = "") -> List[Dict]:
+    """Audit whether the supplied roles form a coherent experimental specification.
+
+    This is a planning audit, not a scientific validity claim. It flags common role
+    mismatches, especially when a treatment-style comparator is paired with a dose
+    or exposure variable without identifying the treatment as a separate factor.
+    """
+    factor = _clean(primary_variable)
+    comp = _clean(comparator)
+    secondary = _clean(secondary_factor)
+    checks: List[Dict] = []
+
+    if not factor:
+        checks.append({"Check": "Primary intervention / exposure", "Status": "Needs detail", "Finding": "Define what is manipulated, assigned, measured, or compared as the primary factor."})
+    else:
+        checks.append({"Check": "Primary intervention / exposure", "Status": "Present", "Finding": factor})
+
+    if not _clean(outcome):
+        checks.append({"Check": "Primary outcome", "Status": "Needs detail", "Finding": "Name the measurable primary endpoint."})
+    else:
+        checks.append({"Check": "Primary outcome", "Status": "Present", "Finding": _clean(outcome)})
+
+    if not comp:
+        checks.append({"Check": "Comparator", "Status": "Optional", "Finding": "No comparator supplied; add one when the study has a reference condition."})
+    else:
+        checks.append({"Check": "Comparator", "Status": "Present", "Finding": comp})
+
+    if secondary:
+        checks.append({"Check": "Secondary factor / moderator", "Status": "Present", "Finding": secondary})
+    else:
+        checks.append({"Check": "Secondary factor / moderator", "Status": "Optional", "Finding": "Add a second factor when testing dose-response, moderation, or interaction."})
+
+    if not _clean(system):
+        checks.append({"Check": "Population / system", "Status": "Needs detail", "Finding": "Define the biological system, population, material, or experimental unit."})
+    else:
+        checks.append({"Check": "Population / system", "Status": "Present", "Finding": _clean(system)})
+
+    if not _clean(conditions):
+        checks.append({"Check": "Experimental conditions", "Status": "Needs detail", "Finding": "Specify important environmental, temporal, dose, or protocol conditions."})
+    else:
+        checks.append({"Check": "Experimental conditions", "Status": "Present", "Finding": _clean(conditions)})
+
+    treatment_words = r"\b(treatment|control|abiotic|biotic|microbial|untreated|vehicle|placebo)\b"
+    dose_words = r"\b(concentration|dose|level|exposure|intensity|amount|ppm|mg/?l|mg/kg)\b"
+    if comp and re.search(treatment_words, comp, re.I) and re.search(dose_words, factor, re.I):
+        checks.append({
+            "Check": "Factor–comparator role consistency",
+            "Status": "Review",
+            "Finding": "The primary factor looks like a dose/exposure variable while the comparator looks like a treatment/control condition. Consider defining the treatment as the primary intervention and the dose/exposure as a secondary factor, unless the design intentionally tests both dimensions."
+        })
+    else:
+        checks.append({"Check": "Factor–comparator role consistency", "Status": "No obvious mismatch", "Finding": "Roles appear compatible from the supplied labels; verify against the actual study design."})
+    return checks
 
 
 def audit_question(question: str) -> List[Dict]:
