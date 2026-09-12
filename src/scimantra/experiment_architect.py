@@ -1,13 +1,16 @@
 from typing import Dict, List
 
 
-def architect(question: str, hypothesis: str, factor: str, outcome: str, comparator: str) -> Dict[str, object]:
+def architect(question: str, hypothesis: str, factor: str, outcome: str, comparator: str, secondary_factor: str = "", system: str = "", conditions: str = "", falsifier: str = "") -> Dict[str, object]:
     return {
         "Research question": question.strip(),
         "Hypothesis": hypothesis.strip(),
         "Primary factor / exposure": factor.strip(),
         "Primary outcome": outcome.strip(),
         "Comparator": comparator.strip(),
+        "Secondary factor / moderator": secondary_factor.strip(),
+        "Population / experimental system": system.strip(),
+        "Key experimental conditions": conditions.strip(),
         "Experimental unit": "Define the smallest independent unit receiving the condition or contributing an independent observation.",
         "Secondary outcomes": "Specify before data collection; distinguish exploratory from confirmatory outcomes.",
         "Controls": "Define negative, positive, vehicle, sham, baseline, or other appropriate controls as applicable.",
@@ -17,7 +20,7 @@ def architect(question: str, hypothesis: str, factor: str, outcome: str, compara
         "Confounders": "List measured and plausible confounders and how they will be controlled or modeled.",
         "Measurement plan": "Define instrument/method, units, timing, QC criteria, detection limits, and missing-data handling.",
         "Analysis plan": "Pre-specify primary comparison/model, effect measure, uncertainty interval, assumptions, and multiplicity handling.",
-        "Falsification criterion": "State what observation would count against the primary hypothesis.",
+        "Falsification criterion": falsifier.strip() or "State what observation would count against the primary hypothesis.",
         "Reproducibility": "Record protocol version, sample/data provenance, analysis code, software versions, and deviations.",
     }
 
@@ -26,17 +29,19 @@ def audit_architecture(plan: Dict[str, str]) -> List[Dict[str, str]]:
     checks = [
         ("Primary question", "Research question"), ("Primary hypothesis", "Hypothesis"),
         ("Primary factor", "Primary factor / exposure"), ("Primary outcome", "Primary outcome"),
-        ("Comparator", "Comparator"), ("Experimental unit", "Experimental unit"),
-        ("Controls", "Controls"), ("Independent replication", "Replication"),
-        ("Randomization", "Randomization"), ("Blinding", "Blinding"),
-        ("Confounders", "Confounders"), ("Measurement QC", "Measurement plan"),
-        ("Analysis plan", "Analysis plan"), ("Falsification", "Falsification criterion"),
-        ("Reproducibility", "Reproducibility"),
+        ("Comparator", "Comparator"), ("Secondary factor", "Secondary factor / moderator"),
+        ("Population / system", "Population / experimental system"), ("Experimental conditions", "Key experimental conditions"),
+        ("Experimental unit", "Experimental unit"), ("Controls", "Controls"),
+        ("Independent replication", "Replication"), ("Randomization", "Randomization"),
+        ("Blinding", "Blinding"), ("Confounders", "Confounders"),
+        ("Measurement QC", "Measurement plan"), ("Analysis plan", "Analysis plan"),
+        ("Falsification", "Falsification criterion"), ("Reproducibility", "Reproducibility"),
     ]
     rows = []
+    placeholder_prefixes = ("Define", "Specify", "List", "Pre-specify", "Record", "State")
     for label, key in checks:
         value = str(plan.get(key, "")).strip()
-        rows.append({"Check": label, "Status": "Addressed" if value and not value.startswith("Define") and not value.startswith("Specify") and not value.startswith("List") and not value.startswith("Pre-specify") and not value.startswith("Record") and not value.startswith("State") else "Needs researcher detail", "Field": key})
+        rows.append({"Check": label, "Status": "Addressed" if value and not value.startswith(placeholder_prefixes) else "Needs researcher detail", "Field": key})
     return rows
 
 
@@ -61,7 +66,8 @@ def reviewer_challenges(plan: Dict[str, str]) -> List[str]:
 
 def export_architecture(plan: Dict[str, object], audit: List[Dict[str, str]]) -> str:
     lines = ["# SciMantra Research Experiment Architecture", ""]
-    for key, value in plan.items(): lines += [f"## {key}", str(value), ""]
+    for key, value in plan.items():
+        lines += [f"## {key}", str(value), ""]
     lines += ["## Audit", "", "| Check | Status |", "|---|---|"]
     lines += [f"| {r['Check']} | {r['Status']} |" for r in audit]
     lines.append("")
