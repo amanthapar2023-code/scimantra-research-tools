@@ -44,8 +44,9 @@ def _page_title(path: Path) -> str:
 
 
 def _page_source(path: Path) -> str:
-    # st.Page paths are relative to this entrypoint; ../pages is intentional.
-    return str(path.relative_to(APP_DIR))
+    # st.Page paths are relative to this entrypoint. The legacy pages directory is
+    # a sibling of APP_DIR, so construct the relative path explicitly.
+    return str(Path("..") / path.relative_to(ROOT))
 
 
 def _url_path(path: Path) -> str:
