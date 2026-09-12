@@ -42,7 +42,7 @@ a,b,c,d = st.columns(4); a.metric("Project completion", f"{progress}%"); b.metri
 st.progress(progress / 100)
 
 st.subheader("🚀 Project command center")
-c1,c2,c3 = st.columns(3)
+c1,c2,c3,c4 = st.columns(4)
 with c1:
     st.markdown("**🗂️ Artifact Manager**")
     st.caption("Register, search, review and archive datasets, figures, tables, claims, protocols and manuscripts.")
@@ -55,6 +55,10 @@ with c3:
     st.markdown("**🗂️ Unified Workspace**")
     st.caption("Track the complete project lifecycle and its current research state.")
     st.markdown("[Open Unified Workspace →](./76_Unified_Research_Project_Workspace)")
+with c4:
+    st.markdown("**☁️ Persistent State & Sync**")
+    st.caption("Load and save Research OS state using authenticated, project-scoped cloud snapshots with conflict protection.")
+    st.markdown("[Open Persistent State & Sync →](./115_Research_OS_Persistent_State)")
 
 st.subheader("Research lifecycle")
 cols = st.columns(4)
@@ -86,5 +90,5 @@ if actions:
 else: st.success("All lifecycle stages are marked complete. Move to the next research cycle.")
 
 st.subheader("Current SciMantra intelligence chain")
-st.info("Literature → evidence matrix → novelty → gap → question/hypothesis → experiment → design optimization → synthetic pilot → falsification → causal/confounding audit → bias/error → statistical assumptions → robustness → reproducibility → provenance → contradiction/integrity → claim stress test → evidence sufficiency → generalizability → mechanism consistency → prior-art challenge → hostile peer review → decision orchestration → unified workspace → cross-tool linkage → artifact management → Research OS.")
+st.info("Literature → evidence matrix → novelty → gap → question/hypothesis → experiment → design optimization → synthetic pilot → falsification → causal/confounding audit → bias/error → statistical assumptions → robustness → reproducibility → provenance → contradiction/integrity → claim stress test → evidence sufficiency → generalizability → mechanism consistency → prior-art challenge → hostile peer review → decision orchestration → unified workspace → cross-tool linkage → artifact management → Research OS → persistent state & cloud synchronization.")
 st.caption(f"Workspace snapshot: {datetime.now().strftime('%Y-%m-%d %H:%M')} · Decision support only; scientific validity remains the researcher's responsibility.")
