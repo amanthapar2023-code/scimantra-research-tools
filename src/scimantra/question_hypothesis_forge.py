@@ -6,6 +6,11 @@ def _clean(text: str) -> str:
     return re.sub(r"\s+", " ", str(text or "")).strip().rstrip(".")
 
 
+def _label(text: str, fallback: str) -> str:
+    value = _clean(text)
+    return value if value else fallback
+
+
 def generate_questions(gap: Dict, research_title: str = "") -> List[Dict]:
     dim = _clean(gap.get("Gap dimension", "the unresolved area")).lower()
     context = _clean(research_title) or "the target research context"
@@ -18,12 +23,71 @@ def generate_questions(gap: Dict, research_title: str = "") -> List[Dict]:
     ]
 
 
-def generate_hypotheses(question: Dict, primary_variable: str = "the pre-specified factor", outcome: str = "the primary outcome", comparator: str = "the comparator") -> List[Dict]:
+def generate_hypotheses(
+    question: Dict,
+    primary_variable: str = "",
+    outcome: str = "",
+    comparator: str = "",
+) -> List[Dict]:
+    """Generate explicit, falsifiable planning candidates from user-defined variables.
+
+    The engine deliberately refuses placeholder variables and does not invent effect
+    sizes or expected results. The directional statement is phrased as a contrast
+    when a comparator is supplied, while the null states the corresponding absence
+    of evidence under the pre-specified analysis.
+    """
     q = _clean(question.get("Research question", ""))
+    factor = _label(primary_variable, "the primary factor")
+    endpoint = _label(outcome, "the primary outcome")
+    reference = _clean(comparator)
+
+    if reference:
+        directional = (
+            f"Under the defined study conditions, changing {factor} will be associated "
+            f"with a difference in {endpoint} compared with {reference}."
+        )
+        null = (
+            f"Under the defined study conditions, changing {factor} will not be associated "
+            f"with a difference in {endpoint} compared with {reference}."
+        )
+        directional_falsifier = (
+            f"The pre-specified analysis shows no difference in {endpoint} between the "
+            f"defined {factor} conditions and {reference}, within the study's decision criteria."
+        )
+        null_falsifier = (
+            f"The pre-specified analysis shows a difference in {endpoint} between the "
+            f"defined {factor} conditions and {reference}, meeting the study's decision criteria."
+        )
+    else:
+        directional = (
+            f"Under the defined study conditions, changing {factor} will be associated "
+            f"with a difference in {endpoint}."
+        )
+        null = (
+            f"Under the defined study conditions, changing {factor} will not be associated "
+            f"with a difference in {endpoint}."
+        )
+        directional_falsifier = (
+            f"The pre-specified analysis shows no difference in {endpoint} across the defined {factor} conditions."
+        )
+        null_falsifier = (
+            f"The pre-specified analysis shows a difference in {endpoint} across the defined {factor} conditions, meeting the study's decision criteria."
+        )
+
+    # Interaction is only meaningful if the researcher identifies a second factor or context.
+    interaction = (
+        f"The association between {factor} and {endpoint} will differ across a pre-specified "
+        "second factor or experimental context."
+    )
+
     return [
-        {"Level": "Directional", "Hypothesis": f"Changing {primary_variable} will be associated with a pre-specified change in {outcome} relative to {comparator}.", "Falsifier": f"No pre-specified difference is observed under the defined analysis for: {q}"},
-        {"Level": "Null", "Hypothesis": f"Changing {primary_variable} will not produce a pre-specified difference in {outcome} relative to {comparator}.", "Falsifier": "A pre-specified difference meeting the study's analysis criteria is observed."},
-        {"Level": "Interaction", "Hypothesis": f"The effect of {primary_variable} on {outcome} will differ across a pre-specified context or factor.", "Falsifier": "No credible interaction is observed under the pre-specified model."},
+        {"Level": "Directional", "Hypothesis": directional, "Falsifier": directional_falsifier},
+        {"Level": "Null", "Hypothesis": null, "Falsifier": null_falsifier},
+        {
+            "Level": "Interaction",
+            "Hypothesis": interaction,
+            "Falsifier": "No credible interaction is observed under the pre-specified model and decision criteria.",
+        },
     ]
 
 
