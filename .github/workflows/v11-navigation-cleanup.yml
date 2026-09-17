@@ -1,0 +1,155 @@
+name: SciMantra V1.1 Navigation Cleanup
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: v11-navigation-cleanup
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Repair custom navigation and routes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('app.py')
+          text = path.read_text(encoding='utf-8')
+
+          # Remove the known duplicate navigation entries while preserving the
+          # canonical labels/keys already used by the first occurrence.
+          duplicate_lines = [
+              'nav("🧪 H₂S Study Design & Sample Size","nav_study_design")',
+              'nav("🔎 Research Data Quality Audit","nav_quality")',
+          ]
+          for line in duplicate_lines:
+              occurrences = text.count(line)
+              if occurrences > 1:
+                  first = True
+                  parts = text.split(line)
+                  rebuilt = parts[0]
+                  for part in parts[1:]:
+                      if first:
+                          rebuilt += line + part
+                          first = False
+                      else:
+                          rebuilt += part
+                  text = rebuilt
+
+          # Remove duplicate tuple entries from the main PRO loop.
+          text = text.replace(
+              '("🧪 H₂S Study Design & Sample Size","nav_study_design"),("🔎 Research Data Quality Audit","nav_quality")',
+              ''
+          )
+
+          # Ensure the V1.1 research-operations navigation contains the newest
+          # quality/control pages exactly once.
+          anchor = 'nav("🗂️ Research Task & Milestone Manager", "nav_tasks")'
+          additions = [
+              'nav("🔎 Data Integrity Gate", "nav_integrity_gate")',
+              'nav("🧪 H₂S Study Design & Sample Size", "nav_study_design")',
+              'nav("🧬 Replicate-Aware Statistical Validation", "nav_replicate_validation")',
+              'nav("🔎 Research Data Quality Audit", "nav_quality_audit")',
+              'nav("⚙️ Automated Research Pipeline", "nav_pipeline")',
+              'nav("🗄️ Research Artifact Vault", "nav_artifacts")',
+              'nav("🧭 Research Evidence Timeline", "nav_timeline")',
+              'nav("📊 Research Project Dashboard", "nav_project_dashboard")',
+              'nav("🕸️ Research Evidence Graph", "nav_evidence_graph")',
+              'nav("🧠 Research Decision Center", "nav_decision_center")',
+              'nav("🧾 Audit & Provenance Explorer", "nav_provenance")',
+              'nav("🕒 Activity & Version History", "nav_history")',
+              'nav("🤝 Collaboration Review Center", "nav_review_center")',
+          ]
+          if anchor in text:
+              block = anchor + '\n' + '\n'.join(additions)
+              text = text.replace(anchor, block, 1)
+
+          # Ensure each custom route has a corresponding section branch. These
+          # branches are inserted before the generic Research Tools branch.
+          route_block = '''\n'''.join([
+              'elif section=="🔎 Data Integrity Gate":',
+              '    import runpy; runpy.run_path("pages/43_V1_1_Data_Integrity_Gate.py"); st.stop()',
+              'elif section=="📊 Research Project Dashboard":',
+              '    import runpy; runpy.run_path("pages/36_Research_Project_Dashboard_2.py"); st.stop()',
+              'elif section=="🕸️ Research Evidence Graph":',
+              '    import runpy; runpy.run_path("pages/37_Research_Evidence_Graph.py"); st.stop()',
+              'elif section=="🧠 Research Decision Center":',
+              '    import runpy; runpy.run_path("pages/38_Research_Decision_Center.py"); st.stop()',
+              'elif section=="🧾 Audit & Provenance Explorer":',
+              '    import runpy; runpy.run_path("pages/39_Research_Audit_Provenance_Explorer.py"); st.stop()',
+              'elif section=="🕒 Activity & Version History":',
+              '    import runpy; runpy.run_path("pages/40_Research_Activity_Version_History.py"); st.stop()',
+              'elif section=="🤝 Collaboration Review Center":',
+              '    import runpy; runpy.run_path("pages/41_Research_Collaboration_Review_Center.py"); st.stop()',
+              'elif section=="🗂️ Research Task & Milestone Manager":',
+              '    import runpy; runpy.run_path("pages/42_Research_Task_Milestone_Manager.py"); st.stop()',
+          ])
+          marker = 'elif section=="🔬 Research Tools":'
+          if marker in text and 'pages/43_V1_1_Data_Integrity_Gate.py' not in text:
+              text = text.replace(marker, route_block + '\n\n' + marker, 1)
+
+          # Add explicit routes to the generic page map if those labels are ever
+          # routed through the shared branch. Existing explicit branches remain
+          # the source of truth for research pages.
+          if 'pages/36_Research_Project_Dashboard_2.py' not in text:
+              raise SystemExit('Navigation repair failed: page 36 route missing')
+          if 'pages/43_V1_1_Data_Integrity_Gate.py' not in text:
+              raise SystemExit('Navigation repair failed: page 43 route missing')
+
+          path.write_text(text, encoding='utf-8')
+          print('Navigation cleanup applied.')
+          PY
+
+      - name: Validate navigation uniqueness and route targets
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast, re
+          text = Path('app.py').read_text(encoding='utf-8')
+          ast.parse(text, filename='app.py')
+          labels=[]; keys=[]
+          tree=ast.parse(text)
+          for n in ast.walk(tree):
+              if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id=='nav':
+                  if len(n.args)>0 and isinstance(n.args[0], ast.Constant): labels.append(n.args[0].value)
+                  if len(n.args)>1 and isinstance(n.args[1], ast.Constant): keys.append(n.args[1].value)
+          assert len(labels)==len(set(labels)), f'Duplicate labels: {[x for x in set(labels) if labels.count(x)>1]}'
+          assert len(keys)==len(set(keys)), f'Duplicate keys: {[x for x in set(keys) if keys.count(x)>1]}'
+          routes=re.findall(r'run_path\(["\']([^"\']+\.py)["\']\)', text)
+          missing=[r for r in routes if not Path(r).exists()]
+          assert not missing, f'Missing route targets: {missing}'
+          print(f'Navigation labels: {len(labels)}')
+          print(f'Routes: {len(routes)}')
+          print('Duplicate labels: PASS')
+          print('Duplicate keys: PASS')
+          print('Route targets: PASS')
+          PY
+          python -m compileall -q app.py src pages
+
+      - name: Commit repaired architecture
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app.py
+          if git diff --cached --quiet; then
+            echo "No navigation changes required."
+            exit 0
+          fi
+          git commit -m "Harden V1.1 navigation and research routing"
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
