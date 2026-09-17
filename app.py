@@ -32,8 +32,21 @@ for label,key in [("🧪 Laboratory Calculators","nav_lab"),("📊 Statistics","
 st.sidebar.markdown("**⭐ PRO RESEARCH SUITE**")
 st.sidebar.markdown("**🗂️ RESEARCH OPERATIONS**")
 nav("🗂️ Research Task & Milestone Manager", "nav_tasks")
+nav("🔎 Data Integrity Gate", "nav_integrity_gate")
+nav("🧪 H₂S Study Design & Sample Size", "nav_study_design")
+nav("🧬 Replicate-Aware Statistical Validation", "nav_replicate_validation")
+nav("🔎 Research Data Quality Audit", "nav_quality_audit")
+nav("⚙️ Automated Research Pipeline", "nav_pipeline")
+nav("🗄️ Research Artifact Vault", "nav_artifacts")
+nav("🧭 Research Evidence Timeline", "nav_timeline")
+nav("📊 Research Project Dashboard", "nav_project_dashboard")
+nav("🕸️ Research Evidence Graph", "nav_evidence_graph")
+nav("🧠 Research Decision Center", "nav_decision_center")
+nav("🧾 Audit & Provenance Explorer", "nav_provenance")
+nav("🕒 Activity & Version History", "nav_history")
+nav("🤝 Collaboration Review Center", "nav_review_center")
 
-for label,key in [("SciMantra Pro Workspace","nav_pro_workspace"),("AI Research Assistant","nav_ai"),("Statistical Copilot","nav_copilot"),("Publication Figure Generator","nav_figures"),("Automated Research Report","nav_report"),("Experimental Design Power Analysis","nav_power"),("🧪 H₂S Publication Dashboard","nav_h2s_publication"),("🔎 Research Data Quality Audit","nav_quality_audit"),("🧪 H₂S Study Design & Sample Size","nav_study_design"),("🧬 Replicate-Aware Statistical Validation","nav_replicate_validation"),("⚙️ Automated Research Pipeline","nav_pipeline"),("🗄️ Research Artifact Vault","nav_artifacts"),("🧭 Research Evidence Timeline","nav_timeline"),("🧪 H₂S Study Design & Sample Size","nav_study_design"),("🔎 Research Data Quality Audit","nav_quality")]: nav(label,key)
+for label,key in [("SciMantra Pro Workspace","nav_pro_workspace"),("AI Research Assistant","nav_ai"),("Statistical Copilot","nav_copilot"),("Publication Figure Generator","nav_figures"),("Automated Research Report","nav_report"),("Experimental Design Power Analysis","nav_power"),("🧪 H₂S Publication Dashboard","nav_h2s_publication"),("🔎 Research Data Quality Audit","nav_quality_audit"),("🧪 H₂S Study Design & Sample Size","nav_study_design"),("🧬 Replicate-Aware Statistical Validation","nav_replicate_validation"),("⚙️ Automated Research Pipeline","nav_pipeline"),("🗄️ Research Artifact Vault","nav_artifacts"),("🧭 Research Evidence Timeline","nav_timeline"),]: nav(label,key)
 st.sidebar.markdown("**☁️ ACCOUNT & PROJECTS**")
 for label,key in [("Research Project Manager","nav_projects"),("Accounts Project Hub","nav_accounts"),("Subscriptions and Pro","nav_subscriptions"),("Login and Cloud Account","nav_login"),("Cloud Project Workspace","nav_cloud"),("Account Dashboard","nav_dashboard_account"),("Admin Control Center","nav_admin")]: nav(label,key)
 section=st.session_state.scimantra_page
@@ -149,6 +162,23 @@ elif section=="H₂S Manuscript Studio":
 elif section=="🧪 H₂S Publication Dashboard":
     import runpy
     runpy.run_path("pages/22_H2S_Publication_Results_Dashboard.py")
+
+elif section=="🔎 Data Integrity Gate":
+    import runpy; runpy.run_path("pages/43_V1_1_Data_Integrity_Gate.py"); st.stop()
+elif section=="📊 Research Project Dashboard":
+    import runpy; runpy.run_path("pages/36_Research_Project_Dashboard_2.py"); st.stop()
+elif section=="🕸️ Research Evidence Graph":
+    import runpy; runpy.run_path("pages/37_Research_Evidence_Graph.py"); st.stop()
+elif section=="🧠 Research Decision Center":
+    import runpy; runpy.run_path("pages/38_Research_Decision_Center.py"); st.stop()
+elif section=="🧾 Audit & Provenance Explorer":
+    import runpy; runpy.run_path("pages/39_Research_Audit_Provenance_Explorer.py"); st.stop()
+elif section=="🕒 Activity & Version History":
+    import runpy; runpy.run_path("pages/40_Research_Activity_Version_History.py"); st.stop()
+elif section=="🤝 Collaboration Review Center":
+    import runpy; runpy.run_path("pages/41_Research_Collaboration_Review_Center.py"); st.stop()
+elif section=="🗂️ Research Task & Milestone Manager":
+    import runpy; runpy.run_path("pages/42_Research_Task_Milestone_Manager.py"); st.stop()
 
 elif section=="🔬 Research Tools":
     st.subheader("Research Utilities"); tool=st.selectbox("Tool",["Standard curve","Experimental design checklist","Manuscript checklist"])
