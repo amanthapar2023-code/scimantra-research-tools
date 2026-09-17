@@ -16,82 +16,95 @@ jobs:
   patch:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Move legacy pages into a non-discovered subdirectory
+      - name: Isolate legacy Streamlit pages
+        shell: bash
         run: |
+          set -euo pipefail
+
+          test -f app.py
+          test -d pages
+          mkdir -p pages/_legacy
+
+          moved=0
+          while IFS= read -r -d '' source; do
+            name="$(basename "$source")"
+            target="pages/_legacy/$name"
+            if [[ -e "$target" ]]; then
+              if ! cmp -s "$source" "$target"; then
+                echo "ERROR: conflicting legacy page: $source vs $target"
+                exit 1
+              fi
+              rm -f "$source"
+            else
+              mv "$source" "$target"
+            fi
+            moved=$((moved + 1))
+          done < <(find pages -maxdepth 1 -type f -name '*.py' -print0)
+
+          echo "Isolated $moved top-level Streamlit page script(s)."
+
+      - name: Repair repository references
+        shell: bash
+        run: |
+          set -euo pipefail
           python - <<'PY'
           from pathlib import Path
-          import os
           import re
 
-          pages = Path('pages')
-          legacy = pages / '_legacy'
-          legacy.mkdir(parents=True, exist_ok=True)
-
-          moved = []
-          for source in sorted(pages.glob('*.py')):
-              target = legacy / source.name
-              if target.exists():
-                  if source.read_bytes() != target.read_bytes():
-                      raise SystemExit(f'Conflicting legacy page: {source} vs {target}')
-                  source.unlink()
-              else:
-                  source.rename(target)
-              moved.append(source.name)
-
-          # Update repository references so the custom SciMantra router and
-          # maintenance workflows continue to address the moved scripts.
           root = Path('.')
-          skip_parts = {'.git', '.venv', 'venv', '__pycache__'}
-          text_ext = {'.py', '.yml', '.yaml', '.md', '.toml', '.txt', '.json', '.sh'}
+          skip = {'.git', '.venv', 'venv', '__pycache__'}
+          exts = {'.py', '.yml', '.yaml', '.md', '.toml', '.txt', '.json', '.sh'}
+          pattern = re.compile(r'pages/(?!_legacy/)')
+
+          changed = 0
           for path in root.rglob('*'):
-              if not path.is_file() or any(part in skip_parts for part in path.parts):
+              if not path.is_file() or any(part in skip for part in path.parts):
                   continue
-              if path.suffix.lower() not in text_ext:
+              if path.suffix.lower() not in exts:
                   continue
               try:
                   text = path.read_text(encoding='utf-8')
               except UnicodeDecodeError:
                   continue
-              updated = text.replace('pages/', 'pages/_legacy/')
+              updated = pattern.sub('pages/_legacy/', text)
               if updated != text:
                   path.write_text(updated, encoding='utf-8')
+                  changed += 1
 
-          # Remove the earlier placeholder navigation patch if it exists.
-          app = Path('app.py')
-          text = app.read_text(encoding='utf-8')
-          pattern = re.compile(r'\n# SCIMANTRA_NAVIGATION_FIX_V11\n.*?position="hidden",\n\)\n', re.S)
-          cleaned = pattern.sub('\n', text, count=1)
-          app.write_text(cleaned, encoding='utf-8')
-
-          print(f'Isolated {len(moved)} legacy Streamlit page scripts.')
+          print(f'Updated references in {changed} text file(s).')
           PY
 
-      - name: Verify Streamlit discovery boundary
+      - name: Verify discovery boundary and syntax
+        shell: bash
         run: |
+          set -euo pipefail
           test -f app.py
+          test -d pages/_legacy
           if find pages -maxdepth 1 -type f -name '*.py' | grep -q .; then
-            echo 'ERROR: top-level pages/*.py still exist.'
+            echo 'ERROR: top-level pages/*.py still exist:'
             find pages -maxdepth 1 -type f -name '*.py' -print
             exit 1
           fi
-          test -d pages/_legacy
           python -m py_compile app.py
+          echo 'Streamlit discovery boundary is clean.'
 
-      - name: Commit fix
+      - name: Commit and push isolation
+        shell: bash
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           if git diff --quiet; then
-            echo 'No changes to commit.'
+            echo 'No repository changes required.'
             exit 0
           fi
+
           git add -A
           git commit -m "Isolate legacy Streamlit pages from auto-discovery"
-          git fetch origin main
-          git rebase origin/main
           git push origin HEAD:main
