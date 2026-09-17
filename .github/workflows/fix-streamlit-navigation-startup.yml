@@ -21,40 +21,77 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Patch entrypoint to disable legacy pages auto-discovery
+      - name: Move legacy pages into a non-discovered subdirectory
         run: |
           python - <<'PY'
           from pathlib import Path
+          import os
+          import re
 
-          path = Path('app.py')
-          text = path.read_text(encoding='utf-8')
-          marker = '# SCIMANTRA_NAVIGATION_FIX_V11'
-          if marker in text:
-              print('Startup navigation fix already present.')
-              raise SystemExit(0)
+          pages = Path('pages')
+          legacy = pages / '_legacy'
+          legacy.mkdir(parents=True, exist_ok=True)
 
-          needle = 'st.set_page_config(page_title="SciMantra Research Platform", page_icon="🔬", layout="wide", initial_sidebar_state="expanded")\n'
-          if needle not in text:
-              raise SystemExit('Expected st.set_page_config line was not found in app.py')
+          moved = []
+          for source in sorted(pages.glob('*.py')):
+              target = legacy / source.name
+              if target.exists():
+                  if source.read_bytes() != target.read_bytes():
+                      raise SystemExit(f'Conflicting legacy page: {source} vs {target}')
+                  source.unlink()
+              else:
+                  source.rename(target)
+              moved.append(source.name)
 
-          patch = '''\n# SCIMANTRA_NAVIGATION_FIX_V11\n# Use Streamlit's explicit navigation mode with a hidden placeholder page.\n# This makes Streamlit ignore the legacy pages/ auto-discovery mechanism,\n# while SciMantra continues to use its own custom sidebar/runpy router.\ndef _scimantra_router_placeholder():\n    return None\n\nst.navigation(\n    [st.Page(_scimantra_router_placeholder, title="SciMantra", url_path="scimantra")],\n    position="hidden",\n)\n'''
-          path.write_text(text.replace(needle, needle + patch, 1), encoding='utf-8')
-          print('Applied Streamlit startup navigation fix.')
+          # Update repository references so the custom SciMantra router and
+          # maintenance workflows continue to address the moved scripts.
+          root = Path('.')
+          skip_parts = {'.git', '.venv', 'venv', '__pycache__'}
+          text_ext = {'.py', '.yml', '.yaml', '.md', '.toml', '.txt', '.json', '.sh'}
+          for path in root.rglob('*'):
+              if not path.is_file() or any(part in skip_parts for part in path.parts):
+                  continue
+              if path.suffix.lower() not in text_ext:
+                  continue
+              try:
+                  text = path.read_text(encoding='utf-8')
+              except UnicodeDecodeError:
+                  continue
+              updated = text.replace('pages/', 'pages/_legacy/')
+              if updated != text:
+                  path.write_text(updated, encoding='utf-8')
+
+          # Remove the earlier placeholder navigation patch if it exists.
+          app = Path('app.py')
+          text = app.read_text(encoding='utf-8')
+          pattern = re.compile(r'\n# SCIMANTRA_NAVIGATION_FIX_V11\n.*?position="hidden",\n\)\n', re.S)
+          cleaned = pattern.sub('\n', text, count=1)
+          app.write_text(cleaned, encoding='utf-8')
+
+          print(f'Isolated {len(moved)} legacy Streamlit page scripts.')
           PY
 
-      - name: Compile entrypoint
-        run: python -m py_compile app.py
+      - name: Verify Streamlit discovery boundary
+        run: |
+          test -f app.py
+          if find pages -maxdepth 1 -type f -name '*.py' | grep -q .; then
+            echo 'ERROR: top-level pages/*.py still exist.'
+            find pages -maxdepth 1 -type f -name '*.py' -print
+            exit 1
+          fi
+          test -d pages/_legacy
+          python -m py_compile app.py
 
       - name: Commit fix
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet -- app.py; then
+          if git diff --quiet; then
             echo 'No changes to commit.'
             exit 0
           fi
-          git add app.py
-          git commit -m "Fix Streamlit legacy pages startup crash"
+          git add -A
+          git commit -m "Isolate legacy Streamlit pages from auto-discovery"
           git fetch origin main
           git rebase origin/main
           git push origin HEAD:main
