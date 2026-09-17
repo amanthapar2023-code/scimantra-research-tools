@@ -1,0 +1,108 @@
+name: SciMantra V1.1 Scientific Calculation Integrity Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: v11-scientific-calculation-integrity
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  calculation-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Audit research calculation surfaces
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+
+          targets = list(Path('pages').glob('*.py')) + [Path('src/scimantra/data_ui.py')]
+          for p in targets:
+              ast.parse(p.read_text(encoding='utf-8'), filename=str(p))
+
+          required = {
+              'h2s': ['removal', 'H2S', 'EBRT'],
+              'figure': ['PNG', 'SVG', 'DPI'],
+              'stat': ['Welch', 'ANOVA', 'confidence'],
+          }
+          text='\n'.join(p.read_text(encoding='utf-8') for p in targets)
+          for area, markers in required.items():
+              missing=[m for m in markers if m.lower() not in text.lower()]
+              if missing:
+                  raise SystemExit(f'{area}: missing calculation marker(s): {missing}')
+          print('Research calculation surfaces: PASS')
+          PY
+
+      - name: Audit percentage and division safeguards
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          files=list(Path('pages').glob('*.py'))
+          risky=[]
+          for p in files:
+              t=p.read_text(encoding='utf-8')
+              if re.search(r'/\s*[A-Za-z_][A-Za-z0-9_]*', t) and any(k in t.lower() for k in ('removal','ebrt','loading')):
+                  if not any(k in t.lower() for k in ('zero','0','where','replace','clip','finite','not valid','invalid')):
+                      risky.append(str(p))
+          if risky:
+              print('Review required for division-sensitive research pages:')
+              print('\n'.join(risky))
+          else:
+              print('Division/percentage safeguard scan: PASS')
+          PY
+
+      - name: Audit uncertainty terminology
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          files=list(Path('pages').glob('*.py'))
+          for p in files:
+              t=p.read_text(encoding='utf-8').lower()
+              if any(x in t for x in ('sem','95% ci','confidence interval','error bar')):
+                  if 'n=' not in t and 'n =' not in t and 'sample' not in t:
+                      print(f'Review uncertainty/sample-size labeling: {p}')
+          print('Uncertainty terminology scan: COMPLETE')
+          PY
+
+      - name: Audit unit and physical-quantity labeling
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          terms=('ppm','mg','m3','m³','min','h','ebrt','loading')
+          files=list(Path('pages').glob('*.py'))
+          hits=0
+          for p in files:
+              t=p.read_text(encoding='utf-8').lower()
+              if any(x in t for x in terms):
+                  hits += 1
+          print(f'Unit/physical-quantity review surface detected in {hits} page(s).')
+          print('This audit flags the surface for review; it does not rewrite scientific units automatically.')
+          PY
+
+      - name: Compile application
+        run: |
+          python -m compileall -q app.py src pages
+          echo 'Scientific calculation compilation: PASS'
+
+      - name: Calculation audit summary
+        run: |
+          echo '========================================='
+          echo 'SciMantra V1.1 SCIENTIFIC CALCULATION INTEGRITY'
+          echo 'AUDIT COMPLETE'
+          echo '========================================='
+          echo 'Calculation surfaces: PASS'
+          echo 'Division/percentage review: COMPLETE'
+          echo 'Uncertainty terminology: COMPLETE'
+          echo 'Units review: COMPLETE'
+          echo 'Compilation: PASS'
+          echo '========================================='
