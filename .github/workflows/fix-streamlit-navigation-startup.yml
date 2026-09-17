@@ -1,0 +1,60 @@
+name: Fix Streamlit Startup Navigation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: streamlit-startup-navigation-fix
+  cancel-in-progress: true
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Patch entrypoint to disable legacy pages auto-discovery
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('app.py')
+          text = path.read_text(encoding='utf-8')
+          marker = '# SCIMANTRA_NAVIGATION_FIX_V11'
+          if marker in text:
+              print('Startup navigation fix already present.')
+              raise SystemExit(0)
+
+          needle = 'st.set_page_config(page_title="SciMantra Research Platform", page_icon="🔬", layout="wide", initial_sidebar_state="expanded")\n'
+          if needle not in text:
+              raise SystemExit('Expected st.set_page_config line was not found in app.py')
+
+          patch = '''\n# SCIMANTRA_NAVIGATION_FIX_V11\n# Use Streamlit's explicit navigation mode with a hidden placeholder page.\n# This makes Streamlit ignore the legacy pages/ auto-discovery mechanism,\n# while SciMantra continues to use its own custom sidebar/runpy router.\ndef _scimantra_router_placeholder():\n    return None\n\nst.navigation(\n    [st.Page(_scimantra_router_placeholder, title="SciMantra", url_path="scimantra")],\n    position="hidden",\n)\n'''
+          path.write_text(text.replace(needle, needle + patch, 1), encoding='utf-8')
+          print('Applied Streamlit startup navigation fix.')
+          PY
+
+      - name: Compile entrypoint
+        run: python -m py_compile app.py
+
+      - name: Commit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- app.py; then
+            echo 'No changes to commit.'
+            exit 0
+          fi
+          git add app.py
+          git commit -m "Fix Streamlit legacy pages startup crash"
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
