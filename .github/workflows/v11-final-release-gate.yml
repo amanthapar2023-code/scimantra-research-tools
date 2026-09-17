@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Verify required audit workflows exist
         run: |
@@ -72,6 +72,7 @@ jobs:
           - Application compilation: PASS
           - Dependency declaration: PASS
           - Main application configuration: PASS
+          - GitHub Actions runtime compatibility: Node 24-native actions configured
 
           ## Required verification before public release
           1. Confirm GitHub Actions runs for all V1.1 audit workflows are successful.
