@@ -1,0 +1,95 @@
+name: V1.1 Scientific Validation Audit
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scientific-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run structural scientific audit
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+          import re
+
+          targets = [
+              Path('pages/30_Replicate_Aware_Statistical_Validation.py'),
+              Path('pages/22_H2S_Publication_Results_Dashboard.py'),
+              Path('pages/23_H2S_Evidence_to_Manuscript_Studio.py'),
+              Path('pages/24_H2S_Complete_Manuscript_Builder.py'),
+              Path('pages/25_H2S_Reproducibility_Evidence_Passport.py'),
+              Path('pages/28_H2S_Publication_Figure_Engine.py'),
+              Path('pages/29_H2S_Automatic_Publication_Figure_Set.py'),
+          ]
+
+          errors = []
+          for path in targets:
+              if not path.exists():
+                  errors.append(f'Missing expected research module: {path}')
+                  continue
+              text = path.read_text(encoding='utf-8')
+              try:
+                  ast.parse(text)
+              except SyntaxError as exc:
+                  errors.append(f'{path}: syntax error: {exc}')
+
+              lower = text.lower()
+              if path.name == '30_Replicate_Aware_Statistical_Validation.py':
+                  required = [
+                      'experimental unit / replicate',
+                      'unit_level',
+                      'not treated as independent replicates',
+                      'scipy',
+                  ]
+                  for marker in required:
+                      if marker.lower() not in lower:
+                          errors.append(f'{path}: missing scientific safeguard marker: {marker}')
+
+                  if 'unit_level.groupby(group' not in text:
+                      errors.append(f'{path}: group inference is not visibly based on unit-level data')
+
+              # Flag obvious direct inferential testing of the raw dataframe.
+              for pattern in [
+                  r'ttest_ind\([^\n]*df\[',
+                  r'f_oneway\([^\n]*df\[',
+                  r'mannwhitneyu\([^\n]*df\[',
+              ]:
+                  if re.search(pattern, text):
+                      errors.append(f'{path}: possible direct inferential test on raw dataframe; inspect for pseudoreplication')
+
+          if errors:
+              print('SCIENTIFIC VALIDATION AUDIT: FAILED')
+              for error in errors:
+                  print(' -', error)
+              raise SystemExit(1)
+
+          print('SCIENTIFIC VALIDATION AUDIT: PASSED')
+          print(f'Validated {len(targets)} research modules for syntax and key replicate-aware safeguards.')
+          PY
+
+      - name: Write audit summary
+        run: |
+          mkdir -p audit
+          cat > audit/v1.1-scientific-validation.txt <<'EOF'
+          SciMantra V1.1 Scientific Validation Audit
+          Status: PASSED
+          Scope: replicate-aware validation and key H2S evidence/publication modules
+          Principle: repeated observations must not be silently treated as independent experimental units.
+          This structural audit does not replace domain review of study design or statistical assumptions.
+          EOF
+
+      - name: Upload audit summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: v1.1-scientific-validation-audit
+          path: audit/v1.1-scientific-validation.txt
