@@ -51,7 +51,8 @@ for label,key in [("SciMantra Pro Workspace","nav_pro_workspace"),("AI Research 
         ("🔗 Research Evidence Graph","nav_evidence_graph"),
         ("🎯 Research Decision Center","nav_decision_center"),
         ("🔍 Research Audit & Provenance Explorer","nav_audit_provenance"),
-        ("🕒 Research Activity & Version History","nav_version_history"),("⚙️ Automated Research Pipeline","nav_pipeline"),("🗄️ Research Artifact Vault","nav_artifacts"),("🧭 Research Evidence Timeline","nav_timeline"),]: nav(label,key)
+        ("🕒 Research Activity & Version History","nav_version_history"),
+        ("🤝 Research Collaboration & Review Center","nav_collaboration_review"),("⚙️ Automated Research Pipeline","nav_pipeline"),("🗄️ Research Artifact Vault","nav_artifacts"),("🧭 Research Evidence Timeline","nav_timeline"),]: nav(label,key)
 st.sidebar.markdown("**☁️ ACCOUNT & PROJECTS**")
 for label,key in [("Research Project Manager","nav_projects"),("Accounts Project Hub","nav_accounts"),("Subscriptions and Pro","nav_subscriptions"),("Login and Cloud Account","nav_login"),("Cloud Project Workspace","nav_cloud"),("Account Dashboard","nav_dashboard_account"),("Admin Control Center","nav_admin")]: nav(label,key)
 section=st.session_state.scimantra_page
