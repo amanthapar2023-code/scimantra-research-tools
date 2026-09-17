@@ -1,0 +1,105 @@
+name: SciMantra V1.1 Final Release Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: v11-final-release-gate
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  release-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify required audit workflows exist
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          required = [
+            'v11-release-audit.yml',
+            'v11-navigation-architecture-audit.yml',
+            'v11-navigation-cleanup.yml',
+            'v11-performance-stability-audit.yml',
+            'v11-cloud-session-reliability-audit.yml',
+            'v11-security-auth-data-access-audit.yml',
+            'v11-end-to-end-research-pipeline-audit.yml',
+            'v11-scientific-calculation-integrity-audit.yml',
+            'v11-publication-reproducibility-integrity-audit.yml',
+            'v11-code-dependency-ui-production-audit.yml',
+          ]
+          root=Path('.github/workflows')
+          missing=[x for x in required if not (root/x).exists()]
+          if missing:
+              raise SystemExit('Missing V1.1 audit workflow(s):\n'+'\n'.join(missing))
+          print(f'V1.1 audit workflow inventory: PASS ({len(required)})')
+          PY
+
+      - name: Compile complete application
+        run: |
+          python -m compileall -q app.py src pages
+          echo 'Application compilation: PASS'
+
+      - name: Release configuration gate
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          req=Path('requirements.txt').read_text(encoding='utf-8').lower()
+          required=['streamlit','pandas','numpy','scipy','plotly','openpyxl','statsmodels','supabase','stripe','matplotlib']
+          missing=[x for x in required if not re.search(r'(?m)^\s*'+re.escape(x)+r'(?:[<>=!~]|\s|$)',req)]
+          if missing: raise SystemExit('Missing dependencies: '+', '.join(missing))
+          app=Path('app.py').read_text(encoding='utf-8')
+          if 'st.set_page_config' not in app:
+              raise SystemExit('app.py page configuration missing')
+          print('Release configuration: PASS')
+          PY
+
+      - name: Generate release readiness report
+        run: |
+          cat > V1.1_RELEASE_READINESS.md <<'EOF'
+          # SciMantra V1.1 Release Readiness
+
+          ## Automated gate
+          - Audit workflow inventory: PASS
+          - Application compilation: PASS
+          - Dependency declaration: PASS
+          - Main application configuration: PASS
+
+          ## Required verification before public release
+          1. Confirm GitHub Actions runs for all V1.1 audit workflows are successful.
+          2. Open the deployed Streamlit application and perform a smoke test.
+          3. Verify navigation has no duplicates and all research routes open.
+          4. Verify Supabase schema/secrets if cloud features are enabled.
+          5. Test one representative research dataset end-to-end.
+          6. Confirm publication exports preserve dataset provenance and fingerprints.
+          7. Record any REVIEW/BLOCKED findings before release.
+
+          **Important:** this document does not claim that the live deployment has been manually tested or that cloud persistence is configured. Those require explicit verification.
+          EOF
+          cat V1.1_RELEASE_READINESS.md
+
+      - name: Upload readiness report
+        uses: actions/upload-artifact@v4
+        with:
+          name: scimantra-v1.1-release-readiness
+          path: V1.1_RELEASE_READINESS.md
+
+      - name: Final gate summary
+        run: |
+          echo '========================================='
+          echo 'SciMantra V1.1 FINAL RELEASE GATE'
+          echo '========================================='
+          echo 'Audit inventory: PASS'
+          echo 'Compilation: PASS'
+          echo 'Dependencies/configuration: PASS'
+          echo 'Release readiness report: GENERATED'
+          echo 'Live/cloud verification: REQUIRED BEFORE RELEASE'
+          echo '========================================='
