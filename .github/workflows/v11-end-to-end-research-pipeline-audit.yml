@@ -1,0 +1,114 @@
+name: SciMantra V1.1 End-to-End Research Pipeline Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: v11-end-to-end-research-pipeline
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pipeline-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate research pipeline pages
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+
+          expected = {
+              31: 'Research_Data_Quality_Audit.py',
+              32: 'H2S_Study_Design_and_Sample_Size.py',
+              30: 'Replicate_Aware_Statistical_Validation.py',
+              33: 'Automated_Research_Pipeline.py',
+              34: 'Research_Artifact_Vault.py',
+              35: 'Research_Evidence_Timeline.py',
+              37: 'Research_Evidence_Graph.py',
+              38: 'Research_Decision_Center.py',
+              39: 'Research_Audit_Provenance_Explorer.py',
+              40: 'Research_Activity_Version_History.py',
+              41: 'Research_Collaboration_Review_Center.py',
+              42: 'Research_Task_Milestone_Manager.py',
+              27: 'H2S_Study_Packager.py',
+              28: 'H2S_Publication_Figure_Engine.py',
+              29: 'H2S_Automatic_Publication_Figure_Set.py',
+          }
+
+          missing=[]
+          for number, filename in expected.items():
+              p=Path('pages')/f'{number}_{filename}'
+              if not p.exists():
+                  missing.append(str(p))
+              else:
+                  ast.parse(p.read_text(encoding='utf-8'), filename=str(p))
+          if missing:
+              raise SystemExit('Missing pipeline page(s):\n'+'\n'.join(missing))
+
+          print(f'Validated {len(expected)} research pipeline pages.')
+          PY
+
+      - name: Validate pipeline handoff markers
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          checks = {
+              'pages/33_Automated_Research_Pipeline.py': ['Quality Gate', 'Experimental Unit', 'Reproducibility', 'ZIP'],
+              'pages/30_Replicate_Aware_Statistical_Validation.py': ['experimental', 'replicate', 'Welch', 'ANOVA'],
+              'pages/34_Research_Artifact_Vault.py': ['create_artifact', 'upload_project_file', 'SHA-256'],
+              'pages/25_H2S_Reproducibility_Evidence_Passport.py': ['SHA-256', 'evidence'],
+              'pages/26_H2S_Journal_Submission_Packager.py': ['submission', 'readiness'],
+              'pages/27_H2S_Study_Packager.py': ['manifest', 'dataset', 'ZIP'],
+          }
+
+          for name, markers in checks.items():
+              text=Path(name).read_text(encoding='utf-8')
+              missing=[m for m in markers if m.lower() not in text.lower()]
+              if missing:
+                  raise SystemExit(f'{name}: missing handoff marker(s): {missing}')
+          print('Pipeline handoff markers: PASS')
+          PY
+
+      - name: Check research safeguards
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          pages=list(Path('pages').glob('*.py'))
+          research=[p for p in pages if any(x in p.name.lower() for x in ['h2s','research','statistical','publication','manuscript','pipeline','evidence','quality','replicate','artifact'])]
+          bad=[]
+          for p in research:
+              t=p.read_text(encoding='utf-8').lower()
+              if 'safeguard' not in t and 'caution' not in t:
+                  bad.append(str(p))
+          if bad:
+              print('Review required: research pages without explicit safeguard/caution marker:')
+              print('\n'.join(bad))
+              raise SystemExit(1)
+          print(f'Safeguard marker audit: PASS ({len(research)} research pages reviewed)')
+          PY
+
+      - name: Compile entire application
+        run: |
+          python -m compileall -q app.py src pages
+          echo 'Full application compilation: PASS'
+
+      - name: End-to-end audit summary
+        run: |
+          echo '========================================='
+          echo 'SciMantra V1.1 END-TO-END RESEARCH PIPELINE'
+          echo 'AUDIT COMPLETE'
+          echo '========================================='
+          echo 'Pipeline pages: PASS'
+          echo 'Handoff markers: PASS'
+          echo 'Research safeguards: PASS'
+          echo 'Full compilation: PASS'
+          echo '========================================='
