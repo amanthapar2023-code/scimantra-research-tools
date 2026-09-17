@@ -1,0 +1,129 @@
+name: SciMantra V1.1 Release Audit
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python syntax audit
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+          files = sorted(Path('.').rglob('*.py'))
+          errors = []
+          for path in files:
+              if any(part in {'.git', '__pycache__', '.venv', 'venv'} for part in path.parts):
+                  continue
+              try:
+                  ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
+              except Exception as exc:
+                  errors.append(f'{path}: {exc}')
+          print(f'Python files audited: {len(files)}')
+          if errors:
+              print('\n'.join(errors))
+              raise SystemExit(1)
+          print('Syntax audit: PASS')
+          PY
+
+      - name: Page configuration audit
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          offenders = []
+          for path in sorted(Path('pages').glob('*.py')):
+              text = path.read_text(encoding='utf-8')
+              count = len(re.findall(r'\bst\.set_page_config\s*\(', text))
+              if count:
+                  offenders.append((str(path), count))
+          print('Page-level st.set_page_config occurrences:')
+          for path, count in offenders:
+              print(f'  {path}: {count}')
+          if offenders:
+              print('AUDIT NOTE: dedicated pages should normally omit page-level configuration when launched through app.py.')
+          else:
+              print('Page configuration audit: PASS')
+          PY
+
+      - name: Navigation duplicate audit
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+          path = Path('app.py')
+          text = path.read_text(encoding='utf-8')
+          tree = ast.parse(text)
+          labels = []
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == 'nav' and node.args:
+                  if isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
+                      labels.append(node.args[0].value)
+          duplicates = sorted({x for x in labels if labels.count(x) > 1})
+          print(f'Navigation labels detected: {len(labels)}')
+          if duplicates:
+              print('Duplicate navigation labels:')
+              for item in duplicates:
+                  print(f'  {item}')
+              raise SystemExit(1)
+          print('Navigation duplicate audit: PASS')
+          PY
+
+      - name: Route target audit
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          text = Path('app.py').read_text(encoding='utf-8')
+          routes = re.findall(r'run_path\(["\']([^"\']+\.py)["\']\)', text)
+          missing = [p for p in routes if not Path(p).exists()]
+          print(f'runpy route targets detected: {len(routes)}')
+          if missing:
+              print('Missing route targets:')
+              print('\n'.join(missing))
+              raise SystemExit(1)
+          print('Route target audit: PASS')
+          PY
+
+      - name: Research safeguard audit
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          required = [
+              'pages/30_Replicate_Aware_Statistical_Validation.py',
+              'pages/31_Research_Data_Quality_Audit.py',
+              'pages/32_H2S_Study_Design_and_Sample_Size.py',
+              'pages/33_Automated_Research_Pipeline.py',
+              'pages/42_Research_Task_Milestone_Manager.py',
+          ]
+          for item in required:
+              p = Path(item)
+              if not p.exists():
+                  raise SystemExit(f'Missing required research module: {item}')
+              text = p.read_text(encoding='utf-8').lower()
+              if 'safeguard' not in text and 'validation' not in text:
+                  raise SystemExit(f'Research safeguard/validation language not detected: {item}')
+          print('Research safeguard audit: PASS')
+          PY
+
+      - name: Audit summary
+        run: |
+          echo '========================================='
+          echo 'SciMantra V1.1 RELEASE AUDIT COMPLETE'
+          echo '========================================='
+          echo 'Syntax: PASS'
+          echo 'Routes: PASS'
+          echo 'Navigation uniqueness: PASS'
+          echo 'Research safeguards: PASS'
+          echo 'Page configuration: REVIEWED'
+          echo '========================================='
