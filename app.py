@@ -10,6 +10,18 @@ from src.scimantra.laboratory import molarity_from_mass, dilution_stock_volume, 
 from src.scimantra.environmental import removal_efficiency, loading_rate, ebrt, h2s_removal
 
 st.set_page_config(page_title="SciMantra Research Platform", page_icon="🔬", layout="wide", initial_sidebar_state="expanded")
+
+# SCIMANTRA_NAVIGATION_FIX_V11
+# Use Streamlit's explicit navigation mode with a hidden placeholder page.
+# This makes Streamlit ignore the legacy pages/ auto-discovery mechanism,
+# while SciMantra continues to use its own custom sidebar/runpy router.
+def _scimantra_router_placeholder():
+    return None
+
+st.navigation(
+    [st.Page(_scimantra_router_placeholder, title="SciMantra", url_path="scimantra")],
+    position="hidden",
+)
 st.markdown("""
 <style>
 .block-container{max-width:1450px;padding-top:1.2rem;padding-bottom:3rem}.hero{padding:2rem 2.2rem;border-radius:22px;background:linear-gradient(135deg,#e9f4ff 0%,#f8fbff 55%,#eefaf5 100%);border:1px solid #d8e8f5;margin-bottom:1.3rem;box-shadow:0 6px 24px rgba(20,55,80,.06)}
