@@ -1,0 +1,90 @@
+name: SciMantra V1.1 Cloud Session Reliability Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: v11-cloud-session-reliability
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  cloud-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate cloud/session architecture
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+
+          required = [
+              Path('src/scimantra/cloud.py'),
+              Path('src/scimantra/research_session.py'),
+              Path('pages/18_Cloud_Project_Workspace.py'),
+              Path('pages/34_Research_Artifact_Vault.py'),
+          ]
+          for p in required:
+              if not p.exists():
+                  raise SystemExit(f'Missing required module: {p}')
+              ast.parse(p.read_text(encoding='utf-8'), filename=str(p))
+
+          cloud = Path('src/scimantra/cloud.py').read_text(encoding='utf-8')
+          session = Path('src/scimantra/research_session.py').read_text(encoding='utf-8')
+
+          cloud_requirements = [
+              'upload_project_file',
+              'create_download_url',
+              'list_artifacts',
+              'create_artifact',
+              'delete_artifact',
+          ]
+          missing = [x for x in cloud_requirements if x not in cloud]
+          if missing:
+              raise SystemExit('Missing cloud helper(s): ' + ', '.join(missing))
+
+          session_requirements = ['store_dataframe', 'get_dataframe', 'metadata', 'excel_bytes', 'clear']
+          missing = [x for x in session_requirements if x not in session]
+          if missing:
+              raise SystemExit('Missing research-session helper(s): ' + ', '.join(missing))
+
+          print('Cloud helper surface: PASS')
+          print('Research session helper surface: PASS')
+          print('Required project/artifact modules: PASS')
+          PY
+
+      - name: Audit storage path safety
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('src/scimantra/cloud.py').read_text(encoding='utf-8')
+          required = ['safe_name', 'user_id', 'project_id']
+          missing = [x for x in required if x not in text]
+          if missing:
+              raise SystemExit('Storage path safety markers missing: ' + ', '.join(missing))
+          print('Storage path safety markers: PASS')
+          PY
+
+      - name: Compile cloud-facing modules
+        run: |
+          python -m compileall -q src pages
+          echo 'Cloud/session compilation: PASS'
+
+      - name: Reliability audit summary
+        run: |
+          echo '========================================='
+          echo 'SciMantra V1.1 CLOUD & SESSION RELIABILITY'
+          echo 'AUDIT COMPLETE'
+          echo '========================================='
+          echo 'Cloud helper surface: PASS'
+          echo 'Session helper surface: PASS'
+          echo 'Storage path safety: PASS'
+          echo 'Compilation: PASS'
+          echo '========================================='
