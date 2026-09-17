@@ -1,0 +1,93 @@
+name: SciMantra V1.1 Performance Stability Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: v11-performance-stability-audit
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  stability-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Compile all Python modules
+        run: |
+          python -m compileall -q app.py src pages
+          echo "Python compilation: PASS"
+
+      - name: Detect expensive import-time work
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+          findings=[]
+          for path in [Path('app.py'), *sorted(Path('src').rglob('*.py')), *sorted(Path('pages').glob('*.py'))]:
+              try:
+                  tree=ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
+              except Exception:
+                  continue
+              for node in tree.body:
+                  if isinstance(node, (ast.For, ast.While)):
+                      findings.append(f'{path}:{node.lineno}: top-level loop')
+                  if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr in {'read_csv','read_excel'}:
+                      findings.append(f'{path}:{node.lineno}: top-level data read')
+          if findings:
+              print('Review findings:')
+              print('\n'.join(findings))
+          else:
+              print('Import-time expensive-work scan: PASS')
+          PY
+
+      - name: Detect unsafe source-data mutation patterns
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          risky=[]
+          patterns=[r'\.drop\s*\(', r'\.dropna\s*\(', r'\.fillna\s*\(']
+          for path in [Path('app.py'), *sorted(Path('src').rglob('*.py')), *sorted(Path('pages').glob('*.py'))]:
+              text=path.read_text(encoding='utf-8')
+              for pattern in patterns:
+                  if re.search(pattern,text):
+                      risky.append(f'{path}: {pattern}')
+          print(f'Potential data-transformation patterns found: {len(risky)}')
+          print('These are review signals only; the audit does not classify legitimate analysis transformations as unsafe.')
+          PY
+
+      - name: Dependency sanity check
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('requirements.txt')
+          if not p.exists():
+              raise SystemExit('requirements.txt missing')
+          required=['streamlit','pandas','numpy','scipy','plotly','openpyxl','statsmodels','supabase','stripe','matplotlib']
+          text=p.read_text(encoding='utf-8').lower()
+          missing=[x for x in required if x not in text]
+          if missing:
+              raise SystemExit('Missing expected dependencies: '+', '.join(missing))
+          print('Dependency declaration audit: PASS')
+          PY
+
+      - name: Stability audit summary
+        run: |
+          echo "========================================="
+          echo "SciMantra V1.1 PERFORMANCE & STABILITY"
+          echo "AUDIT COMPLETE"
+          echo "========================================="
+          echo "Compilation: PASS"
+          echo "Import-time workload: reviewed"
+          echo "Data transformations: reviewed"
+          echo "Dependencies: PASS"
+          echo "========================================="
