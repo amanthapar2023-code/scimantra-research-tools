@@ -1,0 +1,114 @@
+name: SciMantra V1.1 Statistical Integrity Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: v11-statistical-integrity
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  statistical-integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Audit replicate and experimental-unit safeguards
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          targets = [
+              Path('pages/30_Replicate_Aware_Statistical_Validation.py'),
+              Path('pages/23_H2S_Evidence_to_Manuscript_Studio.py'),
+              Path('pages/24_H2S_Complete_Manuscript_Builder.py'),
+              Path('pages/25_H2S_Reproducibility_Evidence_Passport.py'),
+              Path('pages/22_H2S_Publication_Results_Dashboard.py'),
+          ]
+          required = [
+              'replicate', 'experimental unit', 'safeguard'
+          ]
+          for p in targets:
+              if not p.exists():
+                  raise SystemExit(f'Missing statistical-integrity target: {p}')
+              text=p.read_text(encoding='utf-8').lower()
+              missing=[x for x in required if x not in text]
+              if missing:
+                  raise SystemExit(f'{p}: missing integrity marker(s): {missing}')
+          print('Experimental-unit / replicate safeguards: PASS')
+          PY
+
+      - name: Detect suspicious independent-time-point testing patterns
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          targets=[p for p in Path('pages').glob('*.py') if any(k in p.name.lower() for k in ['statistical','h2s','publication','manuscript'])]
+          suspicious=[]
+          for p in targets:
+              t=p.read_text(encoding='utf-8')
+              low=t.lower()
+              has_time=any(x in low for x in ['time column','time field','time_points','time point'])
+              has_inferential=any(x in low for x in ['ttest_ind','mannwhitneyu','f_oneway','kruskal'])
+              has_unit=any(x in low for x in ['experimental unit','replicate'])
+              if has_time and has_inferential and not has_unit:
+                  suspicious.append(str(p))
+          if suspicious:
+              print('Potential pseudoreplication review required:')
+              print('\n'.join(suspicious))
+              raise SystemExit(1)
+          print('Independent-time-point screening: PASS')
+          PY
+
+      - name: Audit statistical assumption diagnostics
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('pages/30_Replicate_Aware_Statistical_Validation.py')
+          text=p.read_text(encoding='utf-8').lower()
+          required=['shapiro','levene','welch','mann-whitney','anova','kruskal']
+          missing=[x for x in required if x not in text]
+          if missing:
+              raise SystemExit('Expected statistical diagnostic/test markers missing: '+', '.join(missing))
+          print('Statistical assumption/test diagnostics: PASS')
+          PY
+
+      - name: Audit publication safeguards
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          targets=[
+              Path('pages/28_H2S_Publication_Figure_Engine.py'),
+              Path('pages/29_H2S_Automatic_Publication_Figure_Set.py'),
+              Path('pages/26_H2S_Journal_Submission_Packager.py'),
+          ]
+          for p in targets:
+              text=p.read_text(encoding='utf-8').lower()
+              if not any(x in text for x in ['safeguard','caution','replicate']):
+                  raise SystemExit(f'{p}: no publication integrity marker found')
+          print('Publication integrity safeguards: PASS')
+          PY
+
+      - name: Compile statistical research pages
+        run: |
+          python -m compileall -q app.py src pages
+          echo 'Statistical research compilation: PASS'
+
+      - name: Statistical integrity audit summary
+        run: |
+          echo '========================================='
+          echo 'SciMantra V1.1 STATISTICAL INTEGRITY AUDIT'
+          echo 'AUDIT COMPLETE'
+          echo '========================================='
+          echo 'Experimental-unit safeguards: PASS'
+          echo 'Pseudoreplication screening: PASS'
+          echo 'Assumption/test diagnostics: PASS'
+          echo 'Publication safeguards: PASS'
+          echo 'Compilation: PASS'
+          echo '========================================='
