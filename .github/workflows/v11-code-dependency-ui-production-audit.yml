@@ -1,0 +1,100 @@
+name: SciMantra V1.1 Code Dependency UI Production Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: v11-code-dependency-ui-production
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  production-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python syntax and import-surface audit
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+          files=[Path('app.py'),*Path('src').rglob('*.py'),*Path('pages').glob('*.py')]
+          for p in files:
+              ast.parse(p.read_text(encoding='utf-8'), filename=str(p))
+          print(f'Syntax audit: PASS ({len(files)} Python files)')
+          PY
+
+      - name: Dependency declaration audit
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('requirements.txt')
+          if not p.exists(): raise SystemExit('requirements.txt missing')
+          text=p.read_text(encoding='utf-8').lower()
+          required=['streamlit','pandas','numpy','scipy','plotly','openpyxl','statsmodels','supabase','stripe','matplotlib']
+          missing=[x for x in required if not re.search(r'(?m)^\s*'+re.escape(x)+r'(?:[<>=!~]|\s|$)',text)]
+          if missing: raise SystemExit('Missing declared dependency: '+', '.join(missing))
+          print('Required dependency declarations: PASS')
+          PY
+
+      - name: Deprecated Streamlit API scan
+        run: |
+          if grep -RIn --include='*.py' 'use_container_width' app.py src pages; then
+            echo 'Deprecated use_container_width usage found.'
+            exit 1
+          fi
+          echo 'Deprecated Streamlit width API scan: PASS'
+
+      - name: UI resilience marker audit
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          files=[Path('app.py'),*Path('pages').glob('*.py')]
+          review=[]
+          for p in files:
+              t=p.read_text(encoding='utf-8').lower()
+              if 'file_uploader' in t and not any(x in t for x in ('no data','upload','select')):
+                  review.append(str(p))
+          print('UI resilience scan complete.')
+          if review:
+              print('Review candidates:', ', '.join(review))
+          PY
+
+      - name: Import-time workload scan
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          review=[]
+          for p in [Path('app.py'),*Path('src').rglob('*.py'),*Path('pages').glob('*.py')]:
+              t=p.read_text(encoding='utf-8')
+              if re.search(r'(?m)^\s*(?:pd|pd\.read_|read_excel|read_csv)\(',t):
+                  review.append(str(p))
+          print(f'Data-read surface detected in {len(review)} file(s); review only, no automatic change.')
+          PY
+
+      - name: Full compile check
+        run: |
+          python -m compileall -q app.py src pages
+          echo 'Full compile: PASS'
+
+      - name: Production audit summary
+        run: |
+          echo '========================================='
+          echo 'SciMantra V1.1 CODE / DEPENDENCY / UI'
+          echo 'PRODUCTION AUDIT COMPLETE'
+          echo '========================================='
+          echo 'Syntax: PASS'
+          echo 'Dependencies: PASS'
+          echo 'Deprecated API scan: PASS'
+          echo 'UI resilience: reviewed'
+          echo 'Import-time workload: reviewed'
+          echo 'Compilation: PASS'
+          echo '========================================='
