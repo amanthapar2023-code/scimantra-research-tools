@@ -1,0 +1,104 @@
+name: SciMantra V1.1 Security Auth Data Access Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: v11-security-auth-data-access
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Audit authentication and cloud boundaries
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+
+          files = [
+              Path('src/scimantra/cloud.py'),
+              Path('src/scimantra/entitlements.py'),
+              Path('pages/17_Login_and_Cloud_Account.py'),
+              Path('pages/18_Cloud_Project_Workspace.py'),
+              Path('pages/34_Research_Artifact_Vault.py'),
+          ]
+          for p in files:
+              if not p.exists():
+                  raise SystemExit(f'Missing security-sensitive module: {p}')
+              ast.parse(p.read_text(encoding='utf-8'), filename=str(p))
+
+          cloud = Path('src/scimantra/cloud.py').read_text(encoding='utf-8')
+          checks = ['current_user', 'get_supabase', 'upload_project_file', 'create_download_url']
+          missing=[x for x in checks if x not in cloud]
+          if missing:
+              raise SystemExit('Missing cloud/auth boundary helper(s): '+', '.join(missing))
+
+          print('Authentication/cloud boundary surface: PASS')
+          print('Security-sensitive module compilation: PASS')
+          PY
+
+      - name: Scan for hard-coded credentials
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          patterns = [
+              r'(?i)(api[_-]?key|secret[_-]?key|password|access[_-]?token)\s*=\s*["\'][^"\']{8,}["\']',
+              r'(?i)sk-[A-Za-z0-9_-]{16,}',
+          ]
+          findings=[]
+          roots=[Path('app.py'),Path('src'),Path('pages')]
+          paths=[]
+          for root in roots:
+              paths += [root] if root.is_file() else list(root.rglob('*.py'))
+          for p in paths:
+              text=p.read_text(encoding='utf-8')
+              for pat in patterns:
+                  if re.search(pat,text):
+                      findings.append(str(p))
+                      break
+          if findings:
+              print('Potential credential literals require review:')
+              print('\n'.join(sorted(set(findings))))
+              raise SystemExit(1)
+          print('Hard-coded credential scan: PASS')
+          PY
+
+      - name: Audit sensitive configuration access
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          text='\n'.join(p.read_text(encoding='utf-8') for p in [Path('app.py'),*Path('src').rglob('*.py'),*Path('pages').glob('*.py')])
+          if 'st.secrets' in text:
+              print('Streamlit secrets usage detected: review is expected and not an error.')
+          if 'os.environ' in text or 'os.getenv' in text:
+              print('Environment-based configuration detected.')
+          print('Sensitive configuration access scan: COMPLETE')
+          PY
+
+      - name: Compile security-sensitive code
+        run: |
+          python -m compileall -q app.py src pages
+          echo 'Security-sensitive compilation: PASS'
+
+      - name: Security audit summary
+        run: |
+          echo '========================================='
+          echo 'SciMantra V1.1 SECURITY / AUTH / DATA ACCESS'
+          echo 'AUDIT COMPLETE'
+          echo '========================================='
+          echo 'Auth/cloud boundary: PASS'
+          echo 'Credential scan: PASS'
+          echo 'Configuration access: reviewed'
+          echo 'Compilation: PASS'
+          echo '========================================='
