@@ -46,7 +46,7 @@ nav("🧾 Audit & Provenance Explorer", "nav_provenance")
 nav("🕒 Activity & Version History", "nav_history")
 nav("🤝 Collaboration Review Center", "nav_review_center")
 
-for label,key in [("SciMantra Pro Workspace","nav_pro_workspace"),("AI Research Assistant","nav_ai"),("Statistical Copilot","nav_copilot"),("Publication Figure Generator","nav_figures"),("Automated Research Report","nav_report"),("Experimental Design Power Analysis","nav_power"),("🧪 H₂S Publication Dashboard","nav_h2s_publication"),("🔎 Research Data Quality Audit","nav_quality_audit"),("🧪 H₂S Study Design & Sample Size","nav_study_design"),("🧬 Replicate-Aware Statistical Validation","nav_replicate_validation"),
+for label,key in [("SciMantra Pro Workspace","nav_pro_workspace"),("AI Research Assistant","nav_ai"),("Statistical Copilot","nav_copilot"),("Publication Figure Generator","nav_figures"),("Automated Research Report","nav_report"),("Experimental Design Power Analysis","nav_power"),("🧪 H₂S Publication Dashboard","nav_h2s_publication"),("🔎 Research Data Quality Audit","nav_quality_audit"),("🧪 H₂S Study Design & Sample Size","nav_study_design"),("🧬 Replicate-Aware Statistical Validation","nav_replicate_validation"),("🔎 Research Data Quality Audit","nav_quality"),
         ("🧭 Research Project Dashboard 2.0","nav_project_dashboard_2"),
         ("🔗 Research Evidence Graph","nav_evidence_graph"),
         ("🎯 Research Decision Center","nav_decision_center"),
