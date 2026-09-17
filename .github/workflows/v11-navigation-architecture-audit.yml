@@ -1,0 +1,110 @@
+name: SciMantra V1.1 Navigation Architecture Audit
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  navigation-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Audit navigation structure
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+          import re
+
+          app = Path('app.py')
+          if not app.exists():
+              raise SystemExit('app.py is missing')
+          text = app.read_text(encoding='utf-8')
+          tree = ast.parse(text, filename='app.py')
+
+          labels = []
+          keys = []
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == 'nav':
+                  if len(node.args) >= 1 and isinstance(node.args[0], ast.Constant):
+                      labels.append(node.args[0].value)
+                  if len(node.args) >= 2 and isinstance(node.args[1], ast.Constant):
+                      keys.append(node.args[1].value)
+
+          duplicate_labels = sorted({x for x in labels if labels.count(x) > 1})
+          duplicate_keys = sorted({x for x in keys if keys.count(x) > 1})
+          if duplicate_labels:
+              raise SystemExit('Duplicate navigation labels: ' + ', '.join(map(str, duplicate_labels)))
+          if duplicate_keys:
+              raise SystemExit('Duplicate navigation keys: ' + ', '.join(map(str, duplicate_keys)))
+
+          routes = re.findall(r'run_path\([\"\']([^\"\']+\.py)[\"\']\)', text)
+          missing = sorted(set(p for p in routes if not Path(p).exists()))
+          if missing:
+              raise SystemExit('Missing runpy targets:\n' + '\n'.join(missing))
+
+          page_files = sorted(Path('pages').glob('*.py'))
+          route_set = set(routes)
+          orphan_candidates = []
+          for page in page_files:
+              # Streamlit's conventional pages directory is intentionally excluded:
+              # this audit only reports pages that appear intended for custom routing.
+              if page.name.startswith(('30_', '31_', '32_', '33_', '34_', '35_', '36_', '37_', '38_', '39_', '40_', '41_', '42_', '43_')) and str(page) not in route_set:
+                  orphan_candidates.append(str(page))
+
+          print(f'Navigation labels: {len(labels)}')
+          print(f'Navigation keys: {len(keys)}')
+          print(f'Explicit runpy routes: {len(routes)}')
+          print(f'Custom research pages checked: {len([p for p in page_files if p.name[:3].isdigit() and int(p.name[:2]) >= 30])}')
+          print('Duplicate labels: PASS')
+          print('Duplicate keys: PASS')
+          print('Route targets: PASS')
+          if orphan_candidates:
+              print('ORPHANED RESEARCH PAGES (review required):')
+              print('\n'.join(orphan_candidates))
+              # Orphan detection is advisory because pages may be intentionally
+              # reachable only through another module.
+          else:
+              print('Research page routing coverage: PASS')
+          PY
+
+      - name: Validate page configuration policy
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          offenders = []
+          for p in sorted(Path('pages').glob('*.py')):
+              count = len(re.findall(r'\bst\.set_page_config\s*\(', p.read_text(encoding='utf-8')))
+              if count:
+                  offenders.append(f'{p}:{count}')
+          if offenders:
+              print('Page-level configuration occurrences (review):')
+              print('\n'.join(offenders))
+          else:
+              print('Page configuration policy: PASS')
+          PY
+
+      - name: Compile all Python modules
+        run: |
+          python -m compileall -q app.py src pages
+          echo 'Python compile audit: PASS'
+
+      - name: Architecture audit summary
+        run: |
+          echo '========================================='
+          echo 'SciMantra V1.1 NAVIGATION ARCHITECTURE'
+          echo 'AUDIT COMPLETE'
+          echo '========================================='
+          echo 'Duplicate labels: checked'
+          echo 'Duplicate widget keys: checked'
+          echo 'Route targets: checked'
+          echo 'Orphan research pages: reported'
+          echo 'Python compilation: PASS'
+          echo '========================================='
