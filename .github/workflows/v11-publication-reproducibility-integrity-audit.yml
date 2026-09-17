@@ -1,0 +1,95 @@
+name: SciMantra V1.1 Publication Reproducibility Integrity Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: v11-publication-reproducibility-integrity
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  publication-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate publication pipeline
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+
+          expected = [
+              '22_H2S_Publication_Results_Dashboard.py',
+              '23_H2S_Evidence_to_Manuscript_Studio.py',
+              '24_H2S_Complete_Manuscript_Builder.py',
+              '25_H2S_Reproducibility_Evidence_Passport.py',
+              '26_H2S_Journal_Submission_Packager.py',
+              '27_H2S_Study_Packager.py',
+              '28_H2S_Publication_Figure_Engine.py',
+              '29_H2S_Automatic_Publication_Figure_Set.py',
+          ]
+          for name in expected:
+              p=Path('pages')/name
+              if not p.exists():
+                  raise SystemExit(f'Missing publication page: {p}')
+              ast.parse(p.read_text(encoding='utf-8'), filename=str(p))
+          print(f'Publication pipeline pages: PASS ({len(expected)})')
+          PY
+
+      - name: Audit reproducibility markers
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          required = {
+              '25_H2S_Reproducibility_Evidence_Passport.py': ['SHA-256', 'JSON', 'Evidence'],
+              '26_H2S_Journal_Submission_Packager.py': ['manifest', 'README', 'cover'],
+              '27_H2S_Study_Packager.py': ['manifest', 'dataset', 'methods', 'results'],
+              '28_H2S_Publication_Figure_Engine.py': ['PNG', 'SVG', 'DPI'],
+              '29_H2S_Automatic_Publication_Figure_Set.py': ['PNG', 'SVG', 'manifest'],
+          }
+          for name, markers in required.items():
+              t=(Path('pages')/name).read_text(encoding='utf-8').lower()
+              missing=[m for m in markers if m.lower() not in t]
+              if missing:
+                  raise SystemExit(f'{name}: missing {missing}')
+          print('Reproducibility/export markers: PASS')
+          PY
+
+      - name: Audit dataset provenance language
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          names=['22_H2S_Publication_Results_Dashboard.py','23_H2S_Evidence_to_Manuscript_Studio.py','24_H2S_Complete_Manuscript_Builder.py','28_H2S_Publication_Figure_Engine.py','29_H2S_Automatic_Publication_Figure_Set.py']
+          weak=[]
+          for name in names:
+              t=(Path('pages')/name).read_text(encoding='utf-8').lower()
+              if not any(x in t for x in ('dataset','source','provenance','safeguard','caution')):
+                  weak.append(name)
+          if weak:
+              raise SystemExit('Missing dataset/provenance safeguards: '+', '.join(weak))
+          print('Dataset provenance safeguard language: PASS')
+          PY
+
+      - name: Compile publication stack
+        run: |
+          python -m compileall -q app.py src pages
+          echo 'Publication stack compilation: PASS'
+
+      - name: Publication audit summary
+        run: |
+          echo '========================================='
+          echo 'SciMantra V1.1 PUBLICATION / REPRODUCIBILITY'
+          echo 'AUDIT COMPLETE'
+          echo '========================================='
+          echo 'Publication pipeline: PASS'
+          echo 'Reproducibility markers: PASS'
+          echo 'Dataset provenance safeguards: PASS'
+          echo 'Compilation: PASS'
+          echo '========================================='
